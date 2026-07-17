@@ -13,9 +13,20 @@
             </h2>
             <p class="text-muted mb-0">{{ course.full_name }}</p>
         </div>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
-        </a>
+        <div class="d-flex gap-2">
+            {% if user.is_staff %}
+            <form method="post" action="{% url 'course:course_delete' course.id %}" class="d-inline"
+                  onsubmit="return confirm('Вы уверены, что хотите удалить курс «{{ course.full_name|escapejs }}»? Это действие необратимо — все разделы, темы, единицы, ответы студентов и файлы будут удалены.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger" title="Удалить курс">
+                    <i class="bi bi-trash me-1"></i>Удалить курс
+                </button>
+            </form>
+            {% endif %}
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+            </a>
+        </div>
     </div>
 
     {# Разделы #}
@@ -99,7 +110,9 @@
                                     {% elif unit.link %}
                                         <a href="{{ unit.link }}" target="_blank" class="text-decoration-none">Ссылка</a>
                                     {% else %}{{ unit.get_content_type_display }}{% endif %}
-                                    {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}, порядок: {{ unit.order }})
+                                    {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}
+                                    {% if unit.content_type == 'control' %}, макс. балл: {{ unit.max_score }}{% endif %}
+                                    , порядок: {{ unit.order }})
                                 </small>
                             </div>
                             <div class="d-flex gap-2">
@@ -154,7 +167,9 @@
                             ({% if unit.file %}<a href="{{ unit.file.url }}" target="_blank" class="text-decoration-none">{{ unit.get_content_type_display }} "{{ unit.filename }}"</a>
                             {% elif unit.link %}<a href="{{ unit.link }}" target="_blank" class="text-decoration-none">Ссылка</a>
                             {% else %}{{ unit.get_content_type_display }}{% endif %}
-                            {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}, порядок: {{ unit.order }})
+                            {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}
+                            {% if unit.content_type == 'control' %}, макс. балл: {{ unit.max_score }}{% endif %}
+                            , порядок: {{ unit.order }})
                         </small>
                     </div>
                     <div class="d-flex gap-2">
@@ -535,22 +550,89 @@
         const addUnitModal = document.getElementById('addUnitModal');
         if (addUnitModal) {
             const addUnitBsModal = new bootstrap.Modal(addUnitModal);
+
+            // Добавляем кнопку "Добавить и далее" в футер модалки
+            const addFooter = addUnitModal.querySelector('.modal-footer');
+            if (addFooter && !addFooter.querySelector('.btn-add-another')) {
+                const addAnotherBtn = document.createElement('button');
+                addAnotherBtn.type = 'submit';
+                addAnotherBtn.name = 'add_another';
+                addAnotherBtn.value = '1';
+                addAnotherBtn.className = 'btn btn-outline-success btn-add-another';
+                addAnotherBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Добавить и далее';
+                const cancelBtn = addFooter.querySelector('.btn-secondary');
+                cancelBtn.insertAdjacentElement('afterend', addAnotherBtn);
+            }
+
+            function showAddUnitModal(targetType, targetId, targetName) {
+                document.getElementById('addUnitTargetName').textContent = '«' + targetName + '»';
+                if (targetType === 'topic') {
+                    document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_topic" 0 %}'.replace('0', targetId);
+                } else {
+                    document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_section" 0 %}'.replace('0', targetId);
+                }
+                document.getElementById('addUnitForm').reset();
+                document.getElementById('unitTypeLecture').checked = true;
+                document.getElementById('unitGradingBlock').style.display = 'none';
+                addUnitBsModal.show();
+            }
+
             document.querySelectorAll('.btn-add-unit').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    const targetType = this.getAttribute('data-target-type');
-                    const targetId = this.getAttribute('data-target-id');
-                    document.getElementById('addUnitTargetName').textContent = '«' + this.getAttribute('data-target-name') + '»';
-                    if (targetType === 'topic') {
-                        document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_topic" 0 %}'.replace('0', targetId);
-                    } else {
-                        document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_section" 0 %}'.replace('0', targetId);
-                    }
-                    document.getElementById('addUnitForm').reset();
-                    document.getElementById('unitTypeLecture').checked = true;
-                    document.getElementById('unitGradingBlock').style.display = 'none';
-                    addUnitBsModal.show();
+                    showAddUnitModal(
+                        this.getAttribute('data-target-type'),
+                        this.getAttribute('data-target-id'),
+                        this.getAttribute('data-target-name')
+                    );
                 });
             });
+
+            // Автооткрытие при add_another=1 + автоинкремент названия + восстановление типа
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('add_another') === '1') {
+                const tt = urlParams.get('target_type');
+                const tid = urlParams.get('target_id');
+                const tn = urlParams.get('target_name');
+                const lastTitle = urlParams.get('last_title') || '';
+                const lastContentType = urlParams.get('content_type') || 'lecture';
+                const lastGradingType = urlParams.get('grading_type') || '';
+                const lastMaxScore = urlParams.get('max_score') || '10';
+                if (tt && tid && tn) {
+                    showAddUnitModal(tt, tid, tn);
+                    // Автоинкремент: Лекция 1 → Лекция 2
+                    if (lastTitle) {
+                        const match = lastTitle.match(/^(.*?)(\d+)(\D*)$/);
+                        if (match) {
+                            const prefix = match[1];
+                            const num = parseInt(match[2], 10);
+                            const suffix = match[3];
+                            document.getElementById('unitTitle').value = prefix + (num + 1) + suffix;
+                        } else {
+                            document.getElementById('unitTitle').value = lastTitle;
+                        }
+                    }
+                    // Восстанавливаем content_type
+                    const ctRadio = document.querySelector('input[name="content_type"][value="' + lastContentType + '"]');
+                    if (ctRadio) ctRadio.checked = true;
+                    // Показываем/скрываем grading блок
+                    const gradingBlock = document.getElementById('unitGradingBlock');
+                    if (gradingBlock) {
+                        gradingBlock.style.display = (lastContentType === 'control') ? '' : 'none';
+                    }
+                    // Восстанавливаем grading_type
+                    if (lastContentType === 'control' && lastGradingType) {
+                        const gtRadio = document.querySelector('input[name="grading_type"][value="' + lastGradingType + '"]');
+                        if (gtRadio) gtRadio.checked = true;
+                    }
+                    // Восстанавливаем max_score
+                    const msInput = document.getElementById('unitMaxScore');
+                    if (msInput && lastMaxScore) msInput.value = lastMaxScore;
+                    // Убираем параметры из URL без перезагрузки
+                    if (window.history && window.history.replaceState) {
+                        window.history.replaceState({}, '', window.location.pathname);
+                    }
+                }
+            }
         }
 
         // --- Добавление темы ---

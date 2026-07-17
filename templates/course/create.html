@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Создать курс — Msudle{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm mb-2">
+            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+        </a>
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-plus-circle me-2"></i>Создать курс
+        </h2>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Полное наименование -->
+                        <div class="mb-3">
+                            <label for="id_full_name" class="form-label fw-bold">
+                                Полное наименование <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" name="full_name" id="id_full_name"
+                                   class="form-control" maxlength="500"
+                                   placeholder="Например: Основы программирования на Python"
+                                   required>
+                        </div>
+
+                        <!-- Краткое наименование -->
+                        <div class="mb-3">
+                            <label for="id_short_name" class="form-label fw-bold">
+                                Краткое наименование <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" name="short_name" id="id_short_name"
+                                   class="form-control" maxlength="100"
+                                   placeholder="Например: Python"
+                                   required>
+                        </div>
+
+                        <!-- Идентификатор -->
+                        <div class="mb-3">
+                            <label for="id_identifier" class="form-label fw-bold">
+                                Идентификатор
+                            </label>
+                            <input type="text" name="identifier" id="id_identifier"
+                                   class="form-control" maxlength="50"
+                                   placeholder="Необязательно, для внутренних нужд">
+                            <div class="form-text">Должен быть уникальным. Оставьте пустым, чтобы не задавать.</div>
+                        </div>
+
+                        <!-- Дисциплина -->
+                        <div class="mb-4">
+                            <label for="id_subject" class="form-label fw-bold">
+                                Дисциплина <span class="text-danger">*</span>
+                            </label>
+                            <select name="subject" id="id_subject" class="form-select" required>
+                                <option value="">— Выберите дисциплину —</option>
+                                {% for subj in subjects %}
+                                <option value="{{ subj.id }}">
+                                    {{ subj.full_name }}
+                                    {% if subj.short_name != subj.full_name %}
+                                    ({{ subj.short_name }})
+                                    {% endif %}
+                                    — {{ subj.department.full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Дисциплина определяет кафедру и факультет курса.</div>
+                        </div>
+
+                        <!-- Кнопки -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg me-1"></i>Создать курс
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Подсказка справа -->
+        <div class="col-12 col-lg-4 mt-3 mt-lg-0">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-2">
+                        <i class="bi bi-info-circle me-1"></i>Что будет создано?
+                    </h6>
+                    <ul class="small text-muted mb-0 ps-3">
+                        <li>Курс с указанными параметрами</li>
+                        <li>Вам — права полного доступа</li>
+                        <li>Декану факультета — права просмотра</li>
+                        <li>Зав. кафедрой — права просмотра</li>
+                        <li>Группам «УМО» и «Ректорат» — права просмотра</li>
+                        <li>6 разделов по умолчанию</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

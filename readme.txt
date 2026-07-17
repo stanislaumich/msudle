@@ -88,20 +88,41 @@ msudle/                         # Корень Django-проекта
     verbose_name в apps.py: 'СТУДЕНТЫ'.
     Миграции: 0001-0011.
 
-3.5. course — курсы обучения.
-    Модели: Course, CourseUserPermission, CourseGroupPermission,
-            CourseSection, CourseTopic, LearningUnit, CourseGroupStudent.
-    CourseGroupStudent.group: FK→StudentGroup (вместо group_number).
-    Права: edit / create_delete / view / full_access (пользователям и группам).
-    При создании курса автоматически назначаются права:
-      - создателю — полный доступ (full_access)
-      - декану факультета — просмотр (view)
-      - заведующему кафедрой — просмотр (view)
-      - группе «УМО» — просмотр (view)
-      - группе «Ректорат» — просмотр (view)
-      - добавляются разделы по умолчанию (6 разделов)
-    verbose_name в apps.py: 'КУРСЫ'.
-    Миграции: 0001-0007.
+ 3.5. course — курсы обучения.
+     Модели: Course, CourseUserPermission, CourseGroupPermission,
+             CourseSection, CourseTopic, LearningUnit, CourseGroupStudent,
+             StudentAnswer.
+     CourseGroupStudent.group: FK→StudentGroup (вместо group_number).
+     Права: edit / create_delete / view / full_access (пользователям и группам).
+     При создании курса автоматически назначаются права:
+       - создателю — полный доступ (full_access)
+       - декану факультета — просмотр (view)
+       - заведующему кафедрой — просмотр (view)
+       - группе «УМО» — просмотр (view)
+       - группе «Ректорат» — просмотр (view)
+       - добавляются разделы по умолчанию (6 разделов)
+     Управление курсами (администратор):
+       - Создание курса: кнопка «Создать курс» в dashboard, форма /course/create/
+       - Удаление курса: кнопка «Удалить курс» на странице редактирования
+       - При создании/удалении обрабатываются все связанные файлы
+     Успеваемость:
+       - Таблица /course/<id>/grades/ — группы → студенты → контрольные единицы
+       - Модальное окно проверки ответа: дата ответа, дата изменения ответа,
+         дата проверки, дата изменения оценки, текущий балл/зачёт, форма оценки
+         (баллы 0–max_score или зачёт/незачёт) с кнопкой «Сохранить оценку»
+     Редактирование курса /course/<id>/edit/:
+       - Отображение max_score для контрольных единиц в списке
+       - Модалка добавления единицы: кнопка «Добавить и далее» с автоинкрементом
+         названия (Лекция 1 → Лекция 2), сохранением типа единицы,
+         способа оценивания и max_score
+     Шаблоны:
+       - templates/course/create.html — форма создания курса
+       - templates/course/edit.html — редактирование (разделы/темы/единицы/группы)
+       - templates/course/view.html — просмотр курса (студент/сотрудник)
+       - templates/course/grades.html — таблица успеваемости + модалка проверки
+       - templates/course/student_grades.html — успеваемость студента
+     verbose_name в apps.py: 'КУРСЫ'.
+     Миграции: 0001-0007.
 
 3.6. umo — шифры направлений/специальностей.
     Модель Shifr:

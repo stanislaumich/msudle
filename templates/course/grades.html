@@ -57,7 +57,17 @@
                                            data-unit="{{ cell.unit.title|escapejs }}"
                                            data-status="checked"
                                            data-score="{{ cell.answer.score|default:'' }}"
-                                           data-passed="{% if cell.answer.passed is not None %}{{ cell.answer.passed|yesno:'зачёт,не зачёт' }}{% endif %}">
+                                           data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                           data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                           data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                           data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
+                                           data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
+                                           data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                           data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                           data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                           data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                           data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                           data-course-id="{{ course.id }}">
                                             <i class="bi bi-check-circle-fill text-success fs-4"></i>
                                             {% if cell.answer.score is not None %}
                                             <small class="d-block">{{ cell.answer.score }}</small>
@@ -73,20 +83,28 @@
                                            data-answer-id="{{ cell.answer.id }}"
                                            data-student="{{ row.student.fio|escapejs }}"
                                            data-unit="{{ cell.unit.title|escapejs }}"
-                                           data-status="unchecked">
+                                           data-status="unchecked"
+                                           data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                           data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                           data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
+                                           data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
+                                           data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                           data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                           data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                           data-course-id="{{ course.id }}">
                                             <i class="bi bi-question-circle-fill text-warning fs-4"></i>
                                             <small class="d-block">0</small>
                                         </a>
                                     {% endif %}
                                 {% else %}
                                     {# Нет ответа — красный крестик + 0 #}
-                                    <a href="#" class="btn-grade-icon text-decoration-none"
+                                    <span class="btn-grade-icon text-decoration-none"
                                        data-student="{{ row.student.fio|escapejs }}"
                                        data-unit="{{ cell.unit.title|escapejs }}"
                                        data-status="no_answer">
                                         <i class="bi bi-x-circle-fill text-danger fs-4"></i>
                                         <small class="d-block">0</small>
-                                    </a>
+                                    </span>
                                 {% endif %}
                             </td>
                             {% endfor %}
@@ -126,22 +144,133 @@
     {% endif %}
 </div>
 
-{# Модалка просмотра ответа #}
+{# ============ МОДАЛЬНОЕ ОКНО ОЦЕНИВАНИЯ ============ #}
 <div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-card-checklist text-primary me-2"></i>Просмотр ответа</h5>
+                <h5 class="modal-title"><i class="bi bi-card-checklist text-primary me-2"></i>Проверка ответа</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <p><strong>Студент:</strong> <span id="gradeStudentName"></span></p>
-                <p><strong>Задание:</strong> <span id="gradeUnitTitle"></span></p>
-                <p id="gradeStatusInfo"></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-            </div>
+            <form method="post" id="gradeForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <!-- Информация о студенте и задании -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Студент:</strong> <span id="gradeStudentName"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Задание:</strong> <span id="gradeUnitTitle"></span></p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Даты ответа -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата ответа</small>
+                                    <span id="gradeCreatedAt" class="fw-bold">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="gradeModifiedBlock" style="display:none;">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата изменения ответа</small>
+                                    <span id="gradeModifiedAt" class="fw-bold text-warning">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Даты проверки -->
+                    <div class="row mb-3" id="gradeCheckDatesBlock" style="display:none;">
+                        <div class="col-md-6">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата проверки</small>
+                                    <span id="gradeCheckedAt" class="fw-bold">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="gradeCheckModifiedBlock" style="display:none;">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата изменения оценки</small>
+                                    <span id="gradeCheckedModifiedAt" class="fw-bold text-warning">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Содержимое ответа -->
+                    <div id="gradeAnswerContent" style="display:none;">
+                        <hr>
+                        <h6 class="fw-bold mb-2"><i class="bi bi-file-text me-1"></i>Содержимое ответа</h6>
+                        <div id="gradeAnswerTextBlock" style="display:none;" class="mb-3">
+                            <p class="text-muted small mb-1">Текстовый ответ:</p>
+                            <div class="p-3 bg-body-secondary rounded-3" id="gradeAnswerText" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="gradeAnswerFileBlock" style="display:none;" class="mb-3">
+                            <p class="text-muted small mb-1">Файл ответа:</p>
+                            <a href="#" id="gradeAnswerFileLink" class="btn btn-outline-primary btn-sm" target="_blank">
+                                <i class="bi bi-download me-1"></i><span id="gradeAnswerFileName"></span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Текущая оценка -->
+                    <div id="gradeCurrentScoreBlock" style="display:none;">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-check-lg me-1"></i>Текущая оценка</h6>
+                        <div class="p-3 bg-body-secondary rounded-3 mb-3">
+                            <span id="gradeCurrentScoreDisplay" class="fw-bold fs-5"></span>
+                        </div>
+                    </div>
+
+                    <!-- Форма выставления новой оценки -->
+                    <h6 class="fw-bold mb-2"><i class="bi bi-pencil-square me-1"></i>Выставить оценку</h6>
+
+                    <!-- Балльная оценка -->
+                    <div class="mb-3" id="gradeScoreBlock">
+                        <label for="gradeScoreInput" class="form-label">
+                            Балл <span class="text-muted">(0 – <span id="gradeMaxScoreLabel">100</span>)</span>
+                        </label>
+                        <input type="number" class="form-control" id="gradeScoreInput" name="score"
+                               min="0" value="0" style="max-width:150px;">
+                    </div>
+
+                    <!-- Зачёт / не зачёт -->
+                    <div class="mb-3" id="gradePassFailBlock" style="display:none;">
+                        <label class="form-label">Результат</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="passed" id="gradePassedTrue" value="true">
+                                <label class="form-check-label text-success fw-bold" for="gradePassedTrue">
+                                    <i class="bi bi-check-lg me-1"></i>Зачёт
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="passed" id="gradePassedFalse" value="false">
+                                <label class="form-check-label text-danger fw-bold" for="gradePassedFalse">
+                                    <i class="bi bi-x-lg me-1"></i>Не зачёт
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Сохранить оценку
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -153,29 +282,112 @@
         const gradeModal = document.getElementById('gradeModal');
         if (gradeModal) {
             const bsModal = new bootstrap.Modal(gradeModal);
+            const gradeForm = document.getElementById('gradeForm');
+
             document.querySelectorAll('.btn-grade-icon').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
+
+                    const answerId = this.getAttribute('data-answer-id');
                     const student = this.getAttribute('data-student');
                     const unit = this.getAttribute('data-unit');
                     const status = this.getAttribute('data-status');
                     const score = this.getAttribute('data-score');
-                    const passed = this.getAttribute('data-passed');
+                    const passed = this.getAttribute('data-passed') || '';
+                    const gradingType = this.getAttribute('data-grading-type') || 'score_100';
+                    const maxScore = this.getAttribute('data-max-score') || '100';
+                    const courseId = this.getAttribute('data-course-id');
 
+                    const answerText = this.getAttribute('data-answer-text') || '';
+                    const answerFile = this.getAttribute('data-answer-file') || '';
+                    const answerFileName = this.getAttribute('data-answer-file-name') || '';
+                    const createdAt = this.getAttribute('data-created-at') || '';
+                    const modifiedAt = this.getAttribute('data-modified-at') || '';
+                    const checkedAt = this.getAttribute('data-checked-at') || '';
+                    const checkedModifiedAt = this.getAttribute('data-checked-modified-at') || '';
+
+                    // Заполняем основную информацию
                     document.getElementById('gradeStudentName').textContent = student;
                     document.getElementById('gradeUnitTitle').textContent = unit;
 
-                    let statusText = '';
-                    if (status === 'checked') {
-                        statusText = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Проверено</span>';
-                        if (score) statusText += ' — ' + score + ' баллов';
-                        if (passed) statusText += ' — ' + passed;
-                    } else if (status === 'unchecked') {
-                        statusText = '<span class="text-warning"><i class="bi bi-question-circle-fill me-1"></i>Не проверено</span>';
-                    } else {
-                        statusText = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Нет ответа</span>';
+                    // Устанавливаем action формы
+                    if (answerId) {
+                        gradeForm.action = '{% url "course:check_answer" 0 %}'.replace('0', answerId);
                     }
-                    document.getElementById('gradeStatusInfo').innerHTML = statusText;
+
+                    // Даты ответа
+                    document.getElementById('gradeCreatedAt').textContent = createdAt || '—';
+                    if (modifiedAt) {
+                        document.getElementById('gradeModifiedAt').textContent = modifiedAt;
+                        document.getElementById('gradeModifiedBlock').style.display = '';
+                    } else {
+                        document.getElementById('gradeModifiedBlock').style.display = 'none';
+                    }
+
+                    // Даты проверки
+                    if (status === 'checked') {
+                        document.getElementById('gradeCheckDatesBlock').style.display = '';
+                        document.getElementById('gradeCheckedAt').textContent = checkedAt || '—';
+                        if (checkedModifiedAt) {
+                            document.getElementById('gradeCheckedModifiedAt').textContent = checkedModifiedAt;
+                            document.getElementById('gradeCheckModifiedBlock').style.display = '';
+                        } else {
+                            document.getElementById('gradeCheckModifiedBlock').style.display = 'none';
+                        }
+                    } else {
+                        document.getElementById('gradeCheckDatesBlock').style.display = 'none';
+                    }
+
+                    // Содержимое ответа
+                    var hasContent = false;
+                    if (answerText) {
+                        document.getElementById('gradeAnswerTextBlock').style.display = '';
+                        document.getElementById('gradeAnswerText').textContent = answerText;
+                        hasContent = true;
+                    } else {
+                        document.getElementById('gradeAnswerTextBlock').style.display = 'none';
+                    }
+                    if (answerFile) {
+                        document.getElementById('gradeAnswerFileBlock').style.display = '';
+                        document.getElementById('gradeAnswerFileLink').href = answerFile;
+                        document.getElementById('gradeAnswerFileName').textContent = answerFileName || 'Скачать файл';
+                        hasContent = true;
+                    } else {
+                        document.getElementById('gradeAnswerFileBlock').style.display = 'none';
+                    }
+                    document.getElementById('gradeAnswerContent').style.display = hasContent ? '' : 'none';
+
+                    // Текущая оценка
+                    if (status === 'checked') {
+                        document.getElementById('gradeCurrentScoreBlock').style.display = '';
+                        var currentDisplay = '';
+                        if (score) {
+                            currentDisplay = score + ' баллов';
+                        }
+                        if (passed) {
+                            currentDisplay += (currentDisplay ? ' — ' : '') + passed;
+                        }
+                        if (!currentDisplay) currentDisplay = 'Оценка выставлена';
+                        document.getElementById('gradeCurrentScoreDisplay').textContent = currentDisplay;
+                    } else {
+                        document.getElementById('gradeCurrentScoreBlock').style.display = 'none';
+                    }
+
+                    // Форма оценки в зависимости от типа
+                    if (gradingType === 'pass_fail') {
+                        document.getElementById('gradeScoreBlock').style.display = 'none';
+                        document.getElementById('gradePassFailBlock').style.display = '';
+                        // Сбрасываем радиокнопки
+                        document.getElementById('gradePassedTrue').checked = false;
+                        document.getElementById('gradePassedFalse').checked = false;
+                    } else {
+                        document.getElementById('gradeScoreBlock').style.display = '';
+                        document.getElementById('gradePassFailBlock').style.display = 'none';
+                        document.getElementById('gradeMaxScoreLabel').textContent = maxScore;
+                        var scoreInput = document.getElementById('gradeScoreInput');
+                        scoreInput.max = maxScore;
+                        scoreInput.value = (status === 'checked' && score) ? score : 0;
+                    }
 
                     bsModal.show();
                 });

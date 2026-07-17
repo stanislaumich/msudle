@@ -3,7 +3,8 @@ import os
 from django.db import models as django_models
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import Group
 from django.views.decorators.http import require_POST
 from collections import OrderedDict
 
@@ -107,6 +108,209 @@ def section_delete(request, section_id):
     section.delete()
     messages.success(request, f'Раздел «{section.name}» успешно удалён.')
     return redirect('course:course_edit', course_id=course.id)
+
+
+@login_required
+def course_create(request):
+    """Создание нового курса."""
+    # Только администраторы (is_staff) могут создавать курсы
+    if not request.user.is_staff:
+        messages.error(request, 'Только администраторы могут создавать курсы.')
+        return redirect('dashboard')
+
+    from subject.models import Subject
+
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name', '').strip()
+        short_name = request.POST.get('short_name', '').strip()
+        identifier = request.POST.get('identifier', '').strip() or None
+        subject_id = request.POST.get('subject', '').strip()
+
+        if not full_name or not short_name or not subject_id:
+            messages.error(request, 'Полное наименование, краткое наименование и дисциплина обязательны.')
+            return redirect('course:course_create')
+
+        try:
+            subject = Subject.objects.get(id=int(subject_id))
+        except (Subject.DoesNotExist, ValueError, TypeError):
+            messages.error(request, 'Выбранная дисциплина не существует.')
+            return redirect('course:course_create')
+
+        # Проверка уникальности identifier
+        if identifier and Course.objects.filter(identifier=identifier).exists():
+            messages.error(request, f'Идентификатор «{identifier}» уже используется.')
+            return redirect('course:course_create')
+
+        course = Course.objects.create(
+            subject=subject,
+            full_name=full_name,
+            short_name=short_name,
+            identifier=identifier,
+        )
+
+        # Автоматически назначаем права (как в админке)
+        _assign_default_permissions(request.user, course)
+        _assign_default_sections(course)
+
+        messages.success(request, f'Курс «{course.short_name}» успешно создан.')
+        return redirect('course:course_edit', course_id=course.id)
+
+    # GET — показываем форму
+    subjects = Subject.objects.select_related('department__faculty').all().order_by('full_name')
+    return render(request, 'course/create.html', {
+        'subjects': subjects,
+    })
+
+
+def _assign_default_permissions(creator, course):
+    """При создании курса: создателю — полный доступ, декану — просмотр, зав. кафедрой — просмотр."""
+    # Создатель — полный доступ
+    CourseUserPermission.objects.get_or_create(
+        course=course,
+        user=creator,
+        defaults={'permission': 'full_access'},
+    )
+    # Декан факультета (через subject → department → faculty)
+    department = course.subject.department
+    faculty = department.faculty
+    if faculty.dean:
+        CourseUserPermission.objects.get_or_create(
+            course=course,
+            user=faculty.dean,
+            defaults={'permission': 'view'},
+        )
+    # Заведующий кафедрой
+    if department.head:
+        CourseUserPermission.objects.get_or_create(
+            course=course,
+            user=department.head,
+            defaults={'permission': 'view'},
+        )
+    # Группы УМО и Ректорат — просмотр
+    for group_name in ('УМО', 'Ректорат'):
+        try:
+            group = Group.objects.get(name=group_name)
+            CourseGroupPermission.objects.get_or_create(
+                course=course,
+                group=group,
+                defaults={'permission': 'view'},
+            )
+        except Group.DoesNotExist:
+            pass
+
+
+def _assign_default_sections(course):
+    """Добавляет разделы по умолчанию к новому курсу."""
+    for i, name in enumerate(CourseSection.DEFAULT_SECTIONS, start=1):
+        CourseSection.objects.get_or_create(
+            course=course,
+            name=name,
+            defaults={'order': i},
+        )
+
+
+@login_required
+@require_POST
+def course_delete(request, course_id):
+    """Удаление курса."""
+    # Только администраторы (is_staff) могут удалять курсы
+    if not request.user.is_staff:
+        messages.error(request, 'Только администраторы могут удалять курсы.')
+        return redirect('dashboard')
+
+    course = get_object_or_404(Course, id=course_id)
+
+    # Удаляем файлы всех единиц курса
+    units = LearningUnit.objects.filter(
+        django_models.Q(topic__section__course=course) | django_models.Q(section__course=course)
+    )
+    for unit in units:
+        if unit.file and os.path.isfile(unit.file.path):
+            os.remove(unit.file.path)
+
+    # Удаляем файлы ответов студентов
+    answers = StudentAnswer.objects.filter(
+        django_models.Q(learning_unit__topic__section__course=course) |
+        django_models.Q(learning_unit__section__course=course)
+    )
+    for answer in answers:
+        if answer.answer_file and os.path.isfile(answer.answer_file.path):
+            os.remove(answer.answer_file.path)
+
+    course_name = course.short_name
+    course.delete()
+    messages.success(request, f'Курс «{course_name}» успешно удалён.')
+    return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def check_answer(request, answer_id):
+    """Сохранение оценки (проверка) ответа студента преподавателем."""
+    answer = get_object_or_404(StudentAnswer.objects.select_related(
+        'learning_unit__topic__section__course',
+        'learning_unit__section__course',
+    ), id=answer_id)
+
+    # Определяем курс
+    if answer.learning_unit.topic:
+        course = answer.learning_unit.topic.section.course
+    else:
+        course = answer.learning_unit.section.course
+
+    # Проверяем права
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав на проверку ответов.')
+        return redirect('dashboard')
+
+    unit = answer.learning_unit
+
+    # Определяем тип оценки
+    grading_type = unit.grading_type or 'score_100'
+
+    if grading_type == 'pass_fail':
+        passed_raw = request.POST.get('passed', '')
+        if passed_raw == 'true':
+            answer.passed = True
+            answer.score = 1  # условный балл
+        elif passed_raw == 'false':
+            answer.passed = False
+            answer.score = 0
+        else:
+            messages.error(request, 'Укажите результат зачёта.')
+            return redirect('course:course_grades', course_id=course.id)
+    else:
+        # score_100
+        try:
+            score = int(request.POST.get('score', ''))
+            max_score = unit.max_score or 100
+            if score < 0 or score > max_score:
+                messages.error(request, f'Балл должен быть от 0 до {max_score}.')
+                return redirect('course:course_grades', course_id=course.id)
+        except (ValueError, TypeError):
+            messages.error(request, 'Введите числовой балл.')
+            return redirect('course:course_grades', course_id=course.id)
+        answer.score = score
+        answer.passed = None
+
+    from django.utils import timezone
+    now = timezone.now()
+
+    if answer.checked:
+        # Обновление существующей проверки
+        answer.checked_modified_at = now
+    else:
+        # Первая проверка
+        answer.checked = True
+        answer.checked_at = now
+
+    answer.save()
+
+    student_name = answer.student.login
+    messages.success(request, f'Оценка для «{student_name}» сохранена.')
+    return redirect('course:course_grades', course_id=course.id)
 
 
 @login_required
@@ -680,6 +884,25 @@ def unit_add_to_topic(request, topic_id):
     if request.method == 'POST':
         _add_unit(request, course, topic=topic)
 
+    add_another = request.POST.get('add_another', '')
+    if add_another:
+        from django.urls import reverse
+        from urllib.parse import urlencode
+        last_title = request.POST.get('title', '').strip()
+        last_content_type = request.POST.get('content_type', 'lecture').strip()
+        last_grading_type = request.POST.get('grading_type', '').strip()
+        last_max_score = request.POST.get('max_score', '10').strip()
+        params = urlencode({
+            'add_another': '1',
+            'target_type': 'topic',
+            'target_id': topic_id,
+            'target_name': topic.content,
+            'last_title': last_title,
+            'content_type': last_content_type,
+            'grading_type': last_grading_type,
+            'max_score': last_max_score,
+        })
+        return redirect(f"{reverse('course:course_edit', args=[course.id])}?{params}")
     return redirect('course:course_edit', course_id=course.id)
 
 
@@ -698,6 +921,25 @@ def unit_add_to_section(request, section_id):
     if request.method == 'POST':
         _add_unit(request, course, section=section)
 
+    add_another = request.POST.get('add_another', '')
+    if add_another:
+        from django.urls import reverse
+        from urllib.parse import urlencode
+        last_title = request.POST.get('title', '').strip()
+        last_content_type = request.POST.get('content_type', 'lecture').strip()
+        last_grading_type = request.POST.get('grading_type', '').strip()
+        last_max_score = request.POST.get('max_score', '10').strip()
+        params = urlencode({
+            'add_another': '1',
+            'target_type': 'section',
+            'target_id': section_id,
+            'target_name': section.name,
+            'last_title': last_title,
+            'content_type': last_content_type,
+            'grading_type': last_grading_type,
+            'max_score': last_max_score,
+        })
+        return redirect(f"{reverse('course:course_edit', args=[course.id])}?{params}")
     return redirect('course:course_edit', course_id=course.id)
 
 

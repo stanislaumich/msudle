@@ -4,6 +4,8 @@ from . import views
 app_name = 'course'
 
 urlpatterns = [
+    path('create/', views.course_create, name='course_create'),
+    path('<int:course_id>/delete/', views.course_delete, name='course_delete'),
     path('<int:course_id>/edit/', views.course_edit, name='course_edit'),
     path('section/<int:section_id>/delete/', views.section_delete, name='section_delete'),
     path('section/<int:section_id>/toggle-visibility/', views.section_toggle_visibility, name='section_toggle_visibility'),
@@ -23,4 +25,5 @@ urlpatterns = [
     path('groupstudent/<int:gs_id>/unenroll/', views.course_unenroll_group, name='course_unenroll_group'),
     path('<int:course_id>/grades/', views.course_grades, name='course_grades'),
     path('<int:course_id>/student-grades/', views.student_grades, name='student_grades'),
+    path('answer/<int:answer_id>/check/', views.check_answer, name='check_answer'),
 ]
