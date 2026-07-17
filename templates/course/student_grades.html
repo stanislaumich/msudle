@@ -60,22 +60,23 @@
                                     {# Проверено преподавателем без ответа — зелёный кружок с жёлтым #}
                                     <a href="#" class="btn-grade-icon text-decoration-none"
                                        data-answer-id="{{ cell.answer.id }}"
-                                       data-unit-id="{{ cell.unit.id }}"
-                                       data-unit-title="{{ cell.unit.title|escapejs }}"
-                                       data-status="checked"
-                                       data-score="{{ cell.answer.score|default:'' }}"
-                                       data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
-                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
-                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
-                                       data-answer-text=""
-                                       data-answer-file=""
-                                       data-answer-file-name=""
-                                       data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
-                                       data-modified-at=""
-                                       data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
-                                       data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
-                                       data-comment="{{ cell.answer.comment|default:''|escapejs }}"
-                                       data-course-id="{{ course.id }}">
+                                        data-unit-id="{{ cell.unit.id }}"
+                                        data-unit-title="{{ cell.unit.title|escapejs }}"
+                                        data-status="checked"
+                                        data-score="{{ cell.answer.score|default:'' }}"
+                                        data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                        data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                        data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                        data-answer-text=""
+                                        data-answer-file=""
+                                        data-answer-file-name=""
+                                        data-is-test="true"
+                                        data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                        data-modified-at=""
+                                        data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                        data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                        data-comment="{{ cell.answer.comment|default:''|escapejs }}"
+                                        data-course-id="{{ course.id }}">
                                         <i class="bi bi-x-circle-fill text-success fs-4"></i>
                                         {% if cell.answer.score is not None %}
                                         <small class="d-block">{{ cell.answer.score }}</small>
@@ -89,22 +90,23 @@
                                     {# Проверено — зелёная галочка #}
                                     <a href="#" class="btn-grade-icon text-decoration-none"
                                        data-answer-id="{{ cell.answer.id }}"
-                                       data-unit-id="{{ cell.unit.id }}"
-                                       data-unit-title="{{ cell.unit.title|escapejs }}"
-                                       data-status="checked"
-                                       data-score="{{ cell.answer.score|default:'' }}"
-                                       data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
-                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
-                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
-                                       data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
-                                       data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
-                                       data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
-                                       data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
-                                       data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
-                                       data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
-                                       data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
-                                       data-comment="{{ cell.answer.comment|default:''|escapejs }}"
-                                       data-course-id="{{ course.id }}">
+                                        data-unit-id="{{ cell.unit.id }}"
+                                        data-unit-title="{{ cell.unit.title|escapejs }}"
+                                        data-status="checked"
+                                        data-score="{{ cell.answer.score|default:'' }}"
+                                        data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                        data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                        data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                        data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
+                                        data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
+                                        data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                        data-is-test="{% if cell.answer.answer_text and 'Тест пройден' in cell.answer.answer_text %}true{% else %}false{% endif %}"
+                                        data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                        data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                        data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                        data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                        data-comment="{{ cell.answer.comment|default:''|escapejs }}"
+                                        data-course-id="{{ course.id }}">
                                         <i class="bi bi-check-circle-fill text-success fs-4"></i>
                                         {% if cell.answer.score is not None %}
                                         <small class="d-block">{{ cell.answer.score }}</small>
@@ -128,6 +130,7 @@
                                        data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
                                        data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
                                        data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                       data-is-test="false"
                                        data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
                                        data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
                                        data-course-id="{{ course.id }}">
@@ -148,6 +151,7 @@
                                    data-answer-text=""
                                    data-answer-file=""
                                    data-answer-file-name=""
+                                   data-is-test="false"
                                    data-created-at=""
                                    data-modified-at=""
                                    data-course-id="{{ course.id }}">
@@ -269,21 +273,26 @@
                     <hr>
 
                     <!-- Форма отправки / обновления ответа -->
-                    <h6 class="fw-bold mb-2"><i class="bi bi-reply me-1"></i>Отправить / обновить ответ</h6>
-                    <p class="text-muted small mb-3">Повторная отправка сбросит предыдущую оценку.</p>
-                    <div class="mb-3">
-                        <label for="gradeAnswerFileInput" class="form-label">Файл ответа</label>
-                        <input type="file" class="form-control" id="gradeAnswerFileInput" name="answer_file">
-                        <small class="text-muted">Загрузите файл с выполненным заданием (оставьте пустым, чтобы сохранить текущий)</small>
+                    <div id="gradeFormSubmitArea">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-reply me-1"></i>Отправить / обновить ответ</h6>
+                        <p class="text-muted small mb-3">Повторная отправка сбросит предыдущую оценку.</p>
+                        <div class="mb-3">
+                            <label for="gradeAnswerFileInput" class="form-label">Файл ответа</label>
+                            <input type="file" class="form-control" id="gradeAnswerFileInput" name="answer_file">
+                            <small class="text-muted">Загрузите файл с выполненным заданием (оставьте пустым, чтобы сохранить текущий)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="gradeAnswerTextInput" class="form-label">Текст ответа</label>
+                            <textarea class="form-control" id="gradeAnswerTextInput" name="answer_text" rows="4" placeholder="Введите ваш ответ"></textarea>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="gradeAnswerTextInput" class="form-label">Текст ответа</label>
-                        <textarea class="form-control" id="gradeAnswerTextInput" name="answer_text" rows="4" placeholder="Введите ваш ответ"></textarea>
+                    <div id="gradeFormTestNote" style="display:none;" class="alert alert-info">
+                        <i class="bi bi-info-circle me-1"></i>Это тестовое задание. Результат был сохранён автоматически при прохождении теста.
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                    <button type="submit" class="btn btn-danger">
+                    <button type="submit" class="btn btn-danger" id="gradeFormSubmitBtn">
                         <i class="bi bi-send me-1"></i>Отправить ответ
                     </button>
                 </div>
@@ -426,6 +435,11 @@
                         document.getElementById('gradeAnswerFileBlock').style.display = 'none';
                     }
                     document.getElementById('gradeAnswerContent').style.display = hasContent ? '' : 'none';
+
+                    // Для тестов — скрываем форму отправки
+                    const isTest = this.getAttribute('data-is-test') === 'true';
+                    document.getElementById('gradeFormSubmitArea').style.display = isTest ? 'none' : '';
+                    document.getElementById('gradeFormTestNote').style.display = isTest ? '' : 'none';
 
                     // Очищаем поля формы
                     document.getElementById('gradeAnswerFileInput').value = '';

@@ -52,7 +52,7 @@
                     <th>Автор</th>
                     <th>Создан</th>
                     <th>Изменён</th>
-                    <th style="width: 150px;">Действия</th>
+                    <th style="width: 210px;">Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -70,6 +70,9 @@
                     <td>{{ t.updated_at|date:"d.m.Y H:i" }}</td>
                     <td>
                         <div class="d-flex gap-1">
+                            <a href="{% url 'testing:preview' t.id %}" class="btn btn-sm btn-outline-success" title="Просмотр теста">
+                                <i class="bi bi-play-fill"></i>
+                            </a>
                             <a href="{% url 'testing:edit' t.id %}" class="btn btn-sm btn-outline-primary" title="Редактировать">
                                 <i class="bi bi-pencil"></i>
                             </a>

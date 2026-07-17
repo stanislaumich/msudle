@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Тест — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Тест: {{ test.name }}</h2>
+            <small class="text-muted">{{ unit.title }}</small>
+        </div>
+        {% if not submitted %}
+        <a href="{% url 'course:course_view' course_id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>К курсу
+        </a>
+        {% endif %}
+    </div>
+
+    {% if submitted %}
+    <!-- Результаты -->
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>Тест завершён</h5>
+        </div>
+        <div class="card-body text-center">
+            <h4>Баллы: {{ scaled_score }} из {{ max_score }}</h4>
+            <div class="progress mb-3" style="height: 25px;">
+                <div class="progress-bar bg-success" role="progressbar"
+                     style="width: {% widthratio scaled_score max_score 100 %}%;"
+                     aria-valuenow="{{ scaled_score }}" aria-valuemin="0" aria-valuemax="{{ max_score }}">
+                    {{ scaled_score }} / {{ max_score }}
+                </div>
+            </div>
+            <small class="text-muted">Правильных ответов: {{ raw_score }} из {{ total_possible }}</small>
+            <p class="text-muted small mt-2">Повторное прохождение невозможно. Правильные варианты не показываются.</p>
+            <a href="{% url 'course:course_view' course_id %}" class="btn btn-primary mt-2">
+                <i class="bi bi-arrow-left me-1"></i>Вернуться к курсу
+            </a>
+        </div>
+    </div>
+
+    <!-- Детализация по вопросам (только правильно/неправильно) -->
+    {% for r in results %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center
+            {% if r.is_correct %}border-success{% else %}border-danger{% endif %}">
+            <strong>Вопрос {{ forloop.counter }} из {{ results|length }}</strong>
+            <span class="badge {% if r.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                {% if r.is_correct %}Правильно{% else %}Неправильно{% endif %}
+            </span>
+        </div>
+        <div class="card-body">
+            <p class="card-text">{{ r.question.text }}</p>
+            <div class="list-group">
+                {% for c in r.question.choices.all %}
+                <div class="list-group-item d-flex align-items-center gap-2
+                    {% if c.id in r.chosen_ids and not r.is_correct %}list-group-item-danger
+                    {% elif c.id in r.chosen_ids and r.is_correct %}list-group-item-success
+                    {% endif %}">
+                    <span>{{ c.text }}</span>
+                    {% if c.id in r.chosen_ids %}
+                    <small class="text-muted ms-auto">(ваш ответ)</small>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <!-- Форма прохождения теста -->
+    <form method="post" id="testForm">
+        {% csrf_token %}
+        {% for q in questions %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Вопрос {{ forloop.counter }} из {{ questions|length }}</strong>
+                <span class="badge bg-secondary">{{ q.score }} балл(ов)</span>
+            </div>
+            <div class="card-body">
+                <p class="card-text fs-5">{{ q.text }}</p>
+                <div class="list-group">
+                    {% for c in q.choices.all %}
+                    <label class="list-group-item d-flex align-items-center gap-2" style="cursor: pointer;">
+                        <input type="{% if q.question_type == 'single' %}radio{% else %}checkbox{% endif %}"
+                               name="q_{{ q.id }}"
+                               value="{{ c.id }}"
+                               class="form-check-input me-2">
+                        <span>{{ c.text }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="text-center mb-4">
+            <button type="submit" class="btn btn-success btn-lg px-5">
+                <i class="bi bi-check2-all me-2"></i>Завершить тест
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

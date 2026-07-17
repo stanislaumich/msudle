@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Просмотр теста — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-play-fill me-2"></i>Просмотр теста
+        </h2>
+        <a href="{% url 'testing:list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>К списку тестов
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ test.name }}</h5>
+            <small class="text-muted">{{ test.subject.full_name }}</small>
+        </div>
+        {% if submitted %}
+        <div class="card-body text-center bg-light">
+            <h4>Результат: <span class="{% if total_score == max_score %}text-success{% elif total_score > 0 %}text-warning{% else %}text-danger{% endif %}">{{ total_score }} / {{ max_score }}</span></h4>
+            <div class="progress mb-3" style="height: 25px;">
+                <div class="progress-bar {% if total_score == max_score %}bg-success{% elif total_score > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
+                     role="progressbar" 
+                     style="width: {% widthratio total_score max_score 100 %}%;" 
+                     aria-valuenow="{{ total_score }}" aria-valuemin="0" aria-valuemax="{{ max_score }}">
+                    {{ total_score }} / {{ max_score }}
+                </div>
+            </div>
+            <p class="text-muted small">Это предпросмотр — результаты не сохраняются.</p>
+            <a href="{% url 'testing:preview' test.id %}" class="btn btn-outline-primary mt-2">
+                <i class="bi bi-arrow-repeat me-1"></i>Пройти заново
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if submitted %}
+    <!-- Показ результатов -->
+    {% for r in results %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Вопрос {{ forloop.counter }} из {{ results|length }}</strong>
+            <span class="badge bg-secondary">{{ r.question.score }} балл(ов)</span>
+        </div>
+        <div class="card-body">
+            <p class="card-text fs-5">{{ r.question.text }}</p>
+            <div class="list-group">
+                {% for c in r.question.choices.all %}
+                <label class="list-group-item d-flex align-items-center gap-2
+                    {% if c.id in r.chosen_ids and not r.is_correct %}list-group-item-danger
+                    {% elif c.id in r.correct_ids %}list-group-item-success
+                    {% endif %}">
+                    <span>{{ c.text }}</span>
+                    {% if c.id in r.correct_ids %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
+                    {% if c.id in r.chosen_ids and c.id not in r.correct_ids %}<i class="bi bi-x-circle-fill text-danger ms-auto"></i>{% endif %}
+                </label>
+                {% endfor %}
+            </div>
+            <div class="mt-2">
+                {% if r.is_correct %}
+                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Правильно (+{{ r.question.score }})</span>
+                {% else %}
+                <span class="badge bg-danger"><i class="bi bi-x-lg"></i> Неправильно (0/{{ r.question.score }})</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <!-- Форма прохождения теста -->
+    <form method="post" id="testForm">
+        {% csrf_token %}
+        {% for q in questions %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Вопрос {{ forloop.counter }} из {{ questions|length }}</strong>
+                <span class="badge bg-secondary">{{ q.score }} балл(ов)</span>
+            </div>
+            <div class="card-body">
+                <p class="card-text fs-5">{{ q.text }}</p>
+                <div class="list-group">
+                    {% for c in q.choices.all %}
+                    <label class="list-group-item d-flex align-items-center gap-2">
+                        <input type="{% if q.question_type == 'single' %}radio{% else %}checkbox{% endif %}" 
+                               name="q_{{ q.id }}" 
+                               value="{{ c.id }}"
+                               class="form-check-input me-2">
+                        <span>{{ c.text }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="text-center mb-4">
+            <button type="submit" class="btn btn-success btn-lg px-5">
+                <i class="bi bi-check2-all me-2"></i>Завершить тест
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

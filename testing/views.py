@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import Test
+from .models import Test, Question
 from subject.models import Subject
 
 
@@ -114,6 +114,7 @@ def test_edit(request, test_id):
         'subjects': subjects,
         'test': test,
         'editing': True,
+        'test_id': test.id,
     })
 
 
@@ -129,4 +130,48 @@ def test_delete(request, test_id):
         return redirect('testing:list')
     return render(request, 'testing/delete_confirm.html', {
         'test': test,
+    })
+
+
+@login_required
+@user_passes_test(_is_teacher, login_url='/home/')
+def test_preview(request, test_id):
+    """Предпросмотр теста — преподаватель может пройти тест, результаты не сохраняются."""
+    test = get_object_or_404(Test.objects.prefetch_related('questions__choices'), id=test_id)
+    questions = list(test.questions.all())
+    if not questions:
+        messages.warning(request, 'В тесте нет вопросов. Добавьте вопросы через редактирование.')
+        return redirect('testing:list')
+
+    if request.method == 'POST':
+        # Подсчёт результатов
+        total_score = 0
+        max_score = 0
+        results = []
+        for q in questions:
+            max_score += q.score
+            choice_ids = request.POST.getlist(f'q_{q.id}')
+            chosen_ids = set(int(c) for c in choice_ids if c.isdigit())
+            correct_ids = set(q.choices.filter(is_correct=True).values_list('id', flat=True))
+            is_correct = chosen_ids == correct_ids
+            if is_correct:
+                total_score += q.score
+            results.append({
+                'question': q,
+                'chosen_ids': chosen_ids,
+                'correct_ids': correct_ids,
+                'is_correct': is_correct,
+            })
+        return render(request, 'testing/preview.html', {
+            'test': test,
+            'questions': questions,
+            'results': results,
+            'total_score': total_score,
+            'max_score': max_score,
+            'submitted': True,
+        })
+
+    return render(request, 'testing/preview.html', {
+        'test': test,
+        'questions': questions,
     })

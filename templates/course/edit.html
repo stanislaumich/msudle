@@ -14,6 +14,7 @@
             <p class="text-muted mb-0">{{ course.full_name }}</p>
         </div>
         <div class="d-flex gap-2">
+            <input type="hidden" id="apiMyTestsUrl" value="{% url 'testing:api_my_tests' %}">
             {% if user.is_staff %}
             <form method="post" action="{% url 'course:course_delete' course.id %}" class="d-inline"
                   onsubmit="return confirm('Вы уверены, что хотите удалить курс «{{ course.full_name|escapejs }}»? Это действие необратимо — все разделы, темы, единицы, ответы студентов и файлы будут удалены.');">
@@ -371,6 +372,7 @@
                 <div class="form-check"><input class="form-check-input" type="radio" name="grading_type" id="unitGradingPassFail" value="pass_fail"><label class="form-check-label" for="unitGradingPassFail">Зачтено / не зачтено</label></div>
                 <div class="form-check"><input class="form-check-input" type="radio" name="grading_type" id="unitGradingScore100" value="score_100"><label class="form-check-label" for="unitGradingScore100">Баллы</label></div>
                 <div class="mt-2"><label for="unitMaxScore" class="form-label">Максимальный балл</label><input type="number" class="form-control" id="unitMaxScore" name="max_score" value="10" min="1" max="1000" style="max-width:100px;"></div>
+                <div class="mt-2"><label for="unitTestId" class="form-label">Тест (опционально)</label><select class="form-select" id="unitTestId" name="test_id"><option value="">Без теста</option></select></div>
             </div>
             <div class="mb-3"><label for="unitFile" class="form-label">Файл</label><input type="file" class="form-control" id="unitFile" name="file"><small class="text-muted">PDF, DOC, DOCX, JPG</small></div>
             <div class="mb-3"><label for="unitLink" class="form-label">Ссылка</label><input type="url" class="form-control" id="unitLink" name="link" maxlength="500"></div>
@@ -433,6 +435,7 @@
                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_grading_type" id="editUnitGradingPassFail" value="pass_fail"><label class="form-check-label" for="editUnitGradingPassFail">Зачтено / не зачтено</label></div>
                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_grading_type" id="editUnitGradingScore100" value="score_100"><label class="form-check-label" for="editUnitGradingScore100">Баллы</label></div>
                 <div class="mt-2"><label for="editUnitMaxScore" class="form-label">Максимальный балл</label><input type="number" class="form-control" id="editUnitMaxScore" name="edit_max_score" value="10" min="1" max="1000" style="max-width:100px;"></div>
+                <div class="mt-2"><label for="editUnitTestId" class="form-label">Тест (опционально)</label><select class="form-select" id="editUnitTestId" name="edit_test_id"><option value="">Без теста</option></select></div>
             </div>
             <div class="mb-3" id="editUnitCurrentFile" style="display:none;"><label class="form-label">Текущий файл</label><div class="text-muted small"><i class="bi bi-file-earmark me-1"></i><span id="editUnitCurrentFileName"></span></div></div>
             <div class="mb-3"><label for="editUnitFile" class="form-label">Заменить файл</label><input type="file" class="form-control" id="editUnitFile" name="file"><small class="text-muted">Оставьте пустым, чтобы сохранить текущий</small></div>
@@ -450,6 +453,42 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Загрузка тестов преподавателя в select
+        function loadMyTests(selectId, currentTestId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const apiUrl = document.getElementById('apiMyTestsUrl');
+            if (!apiUrl) return;
+            select.innerHTML = '<option value="">Без теста</option>';
+            fetch(apiUrl.value)
+                .then(r => r.json())
+                .then(data => {
+                    data.tests.forEach(function(t) {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = t.name + ' (' + t.subject_name + ')';
+                        if (currentTestId && parseInt(currentTestId) === t.id) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                })
+                .catch(function() {});
+        }
+
+        // Подгрузка при открытии модалки добавления (при выборе Контрольная)
+        document.querySelectorAll('input[name="content_type"]').forEach(function(r) {
+            r.addEventListener('change', function() {
+                if (this.value === 'control') loadMyTests('unitTestId');
+            });
+        });
+
+        // При открытии модалки редактирования — загружаем тесты
+        document.querySelectorAll('.btn-edit-unit').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // Загрузим тесты чуть позже, когда модалка уже показана
+                setTimeout(function() { loadMyTests('editUnitTestId'); }, 100);
+            });
+        });
+
         // Вспомогательная: показать/скрыть блок grading в зависимости от выбранного content_type
         function toggleGradingBlock(contentTypeRadioName, gradingBlockId) {
             const controlRadio = document.querySelector('input[name="' + contentTypeRadioName + '"][value="control"]');

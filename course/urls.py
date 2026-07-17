@@ -20,6 +20,7 @@ urlpatterns = [
     path('topic/<int:topic_id>/toggle-visibility/', views.topic_toggle_visibility, name='topic_toggle_visibility'),
     path('unit/<int:unit_id>/toggle-visibility/', views.unit_toggle_visibility, name='unit_toggle_visibility'),
     path('unit/<int:unit_id>/answer/', views.student_answer, name='student_answer'),
+    path('unit/<int:unit_id>/take-test/', views.start_test, name='start_test'),
     path('<int:course_id>/view/', views.course_view, name='course_view'),
     path('<int:course_id>/enroll-groups/', views.course_enroll_groups, name='course_enroll_groups'),
     path('groupstudent/<int:gs_id>/unenroll/', views.course_unenroll_group, name='course_unenroll_group'),

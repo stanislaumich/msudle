@@ -34,3 +34,60 @@ class Test(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.subject.full_name})'
+
+
+class Question(models.Model):
+    """Вопрос теста."""
+    QUESTION_TYPE_CHOICES = [
+        ('single', 'Одиночный выбор'),
+        ('multiple', 'Множественный выбор'),
+    ]
+
+    test = models.ForeignKey(
+        Test,
+        on_delete=models.CASCADE,
+        related_name='questions',
+        verbose_name='Тест',
+    )
+    text = models.TextField(verbose_name='Текст вопроса')
+    question_type = models.CharField(
+        max_length=10,
+        choices=QUESTION_TYPE_CHOICES,
+        default='single',
+        verbose_name='Тип вопроса',
+    )
+    order = models.PositiveSmallIntegerField(default=0, verbose_name='Порядок')
+    score = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name='Балл за правильный ответ',
+        help_text='Сколько баллов получает студент за правильный ответ на этот вопрос',
+    )
+
+    class Meta:
+        verbose_name = 'Вопрос'
+        verbose_name_plural = 'Вопросы'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'Вопрос {self.order}: {self.text[:80]}'
+
+
+class Choice(models.Model):
+    """Вариант ответа к вопросу."""
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name='choices',
+        verbose_name='Вопрос',
+    )
+    text = models.CharField(max_length=500, verbose_name='Текст варианта')
+    is_correct = models.BooleanField(default=False, verbose_name='Правильный')
+
+    class Meta:
+        verbose_name = 'Вариант ответа'
+        verbose_name_plural = 'Варианты ответов'
+        ordering = ['id']
+
+    def __str__(self):
+        prefix = '✓ ' if self.is_correct else '  '
+        return f'{prefix}{self.text[:80]}'

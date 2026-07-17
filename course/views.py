@@ -632,6 +632,114 @@ def student_answer(request, unit_id):
 
 
 @login_required
+def start_test(request, unit_id):
+    """Прохождение теста студентом."""
+    user = request.user
+    if not hasattr(user, 'fio'):
+        messages.error(request, 'Только студенты могут проходить тесты.')
+        return redirect('dashboard')
+
+    unit = get_object_or_404(LearningUnit.objects.select_related('test'), id=unit_id, content_type='control')
+    if not unit.test:
+        messages.error(request, 'К этому заданию не прикреплён тест.')
+        return redirect('course:course_view', course_id=_get_course_for_unit(unit).id)
+
+    course = _get_course_for_unit(unit)
+    if not CourseGroupStudent.objects.filter(course=course, group_id=user.group_id).exists():
+        messages.error(request, 'Вы не подписаны на этот курс.')
+        return redirect('index')
+
+    # Проверяем, не пройден ли тест
+    from .models import StudentAnswer
+    existing = StudentAnswer.objects.filter(student=user, learning_unit=unit).first()
+    if existing and existing.checked:
+        messages.warning(request, 'Вы уже прошли этот тест. Повторное прохождение невозможно.')
+        return redirect('course:course_view', course_id=course.id)
+
+    test = unit.test
+    questions = list(test.questions.prefetch_related('choices').all())
+    if not questions:
+        messages.error(request, 'В тесте нет вопросов.')
+        return redirect('course:course_view', course_id=course.id)
+
+    max_score = unit.max_score or 10
+
+    if request.method == 'POST':
+        # Подсчёт баллов
+        raw_score = 0
+        total_possible = 0
+        results = []
+        for q in questions:
+            total_possible += q.score
+            choice_ids = request.POST.getlist(f'q_{q.id}')
+            chosen_ids = set(int(c) for c in choice_ids if c.isdigit())
+            correct_ids = set(q.choices.filter(is_correct=True).values_list('id', flat=True))
+            is_correct = chosen_ids == correct_ids
+            if is_correct:
+                raw_score += q.score
+            results.append({
+                'question': q,
+                'chosen_ids': chosen_ids,
+                'is_correct': is_correct,
+            })
+
+        # Масштабируем балл к max_score единицы
+        if total_possible > 0:
+            scaled_score = round(raw_score * max_score / total_possible)
+            # Не превышаем max_score
+            if scaled_score > max_score:
+                scaled_score = max_score
+            if scaled_score < 0:
+                scaled_score = 0
+        else:
+            scaled_score = 0
+
+        from django.utils import timezone
+        now = timezone.now()
+
+        # Сохраняем ответ
+        answer, created = StudentAnswer.objects.update_or_create(
+            student=user,
+            learning_unit=unit,
+            defaults={
+                'checked': True,
+                'score': scaled_score,
+                'passed': None,
+                'checked_at': now,
+                'checked_modified_at': now,
+                'answer_text': f'Тест пройден: {raw_score}/{total_possible} баллов',
+            },
+        )
+
+        return render(request, 'course/take_test.html', {
+            'unit': unit,
+            'test': test,
+            'questions': questions,
+            'results': results,
+            'raw_score': raw_score,
+            'total_possible': total_possible,
+            'scaled_score': scaled_score,
+            'max_score': max_score,
+            'submitted': True,
+            'course_id': course.id,
+        })
+
+    return render(request, 'course/take_test.html', {
+        'unit': unit,
+        'test': test,
+        'questions': questions,
+        'course_id': course.id,
+    })
+
+
+def _get_course_for_unit(unit):
+    """Возвращает курс, к которому относится единица."""
+    if unit.topic:
+        return unit.topic.section.course
+    return unit.section.course
+
+
+@login_required
 def course_view(request, course_id):
     """Страница просмотра курса: разделы, темы, единицы (для администратора и студента)."""
     course = get_object_or_404(
@@ -946,6 +1054,21 @@ def unit_edit(request, unit_id):
             order = unit.order
         unit.order = order
 
+        # Обновление test_id
+        if new_content_type == 'control':
+            test_id_raw = request.POST.get('test_id', '') or request.POST.get('edit_test_id', '')
+            if test_id_raw:
+                from testing.models import Test
+                try:
+                    if Test.objects.filter(id=int(test_id_raw)).exists():
+                        unit.test_id = int(test_id_raw)
+                except (ValueError, TypeError):
+                    pass
+            else:
+                unit.test_id = None
+        else:
+            unit.test_id = None
+
         unit.save()
         messages.success(request, f'Единица «{unit.title}» обновлена.')
 
@@ -993,6 +1116,18 @@ def _add_unit(request, course, topic=None, section=None):
         except (ValueError, TypeError):
             max_score = 10
 
+    # test_id — только для контрольных
+    test_id = None
+    if content_type == 'control':
+        test_id_raw = request.POST.get('test_id', '')
+        if test_id_raw:
+            from testing.models import Test
+            try:
+                if Test.objects.filter(id=int(test_id_raw)).exists():
+                    test_id = int(test_id_raw)
+            except (ValueError, TypeError):
+                pass
+
     LearningUnit.objects.create(
         topic=topic,
         section=section,
@@ -1000,6 +1135,7 @@ def _add_unit(request, course, topic=None, section=None):
         content_type=content_type,
         grading_type=grading_type,
         max_score=max_score,
+        test_id=test_id,
         file=uploaded_file if uploaded_file else None,
         link=link if link else None,
         order=next_order,

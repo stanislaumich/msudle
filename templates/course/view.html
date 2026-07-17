@@ -150,10 +150,20 @@
                                 {% endif %}
                             </div>
                             {% if is_student and unit.content_type == 'control' %}
-                            <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
-                                    data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
-                                <i class="bi bi-reply me-1"></i>Ответить
-                            </button>
+                                {% with ans=answer_map|get_item:unit.id %}
+                                {% if ans and ans.checked %}
+                                <span class="text-muted small">(пройдено)</span>
+                                {% elif unit.test_id %}
+                                <a href="{% url 'course:start_test' unit.id %}" class="btn btn-danger btn-sm flex-shrink-0">
+                                    <i class="bi bi-clipboard-check me-1"></i>Пройти тест
+                                </a>
+                                {% else %}
+                                <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
+                                        data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
+                                    <i class="bi bi-reply me-1"></i>Ответить
+                                </button>
+                                {% endif %}
+                                {% endwith %}
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -205,10 +215,20 @@
                         {% endif %}
                     </div>
                     {% if is_student and unit.content_type == 'control' %}
-                    <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
-                            data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
-                        <i class="bi bi-reply me-1"></i>Ответить
-                    </button>
+                        {% with ans=answer_map|get_item:unit.id %}
+                        {% if ans and ans.checked %}
+                        <span class="text-muted small">(пройдено)</span>
+                        {% elif unit.test_id %}
+                        <a href="{% url 'course:start_test' unit.id %}" class="btn btn-danger btn-sm flex-shrink-0">
+                            <i class="bi bi-clipboard-check me-1"></i>Пройти тест
+                        </a>
+                        {% else %}
+                        <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
+                                data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
+                            <i class="bi bi-reply me-1"></i>Ответить
+                        </button>
+                        {% endif %}
+                        {% endwith %}
                     {% endif %}
                 </div>
                 {% endfor %}

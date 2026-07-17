@@ -286,6 +286,15 @@ class LearningUnit(models.Model):
         verbose_name='Тип оценки',
         help_text='Только для контрольных единиц. Укажите способ оценивания.',
     )
+    test = models.ForeignKey(
+        'testing.Test',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='learning_units',
+        verbose_name='Тест',
+        help_text='Прикрепить тест для прохождения студентом (только для контрольных единиц).',
+    )
     max_score = models.PositiveSmallIntegerField(
         default=10,
         verbose_name='Максимальный балл',

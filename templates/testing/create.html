@@ -1,11 +1,189 @@
 {% extends "base.html" %}
 {% block title %}{% if editing %}Редактирование теста{% else %}Создание теста{% endif %} — Msudle{% endblock %}
 
+{% block extra_js %}
+<script>
+    const TEST_ID = {{ test_id|default:'null' }};
+    const API_LIST_URL = TEST_ID ? "{% url 'testing:api_question_list' 999 %}".replace('999', TEST_ID) : null;
+    const API_CREATE_URL = TEST_ID ? "{% url 'testing:api_question_create' 999 %}".replace('999', TEST_ID) : null;
+
+    function csrf() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
+    function loadQuestions() {
+        if (!API_LIST_URL) return;
+        fetch(API_LIST_URL)
+            .then(r => r.json())
+            .then(data => {
+                const container = document.getElementById('questionsContainer');
+                if (!data.questions.length) {
+                    container.innerHTML = '<p class="text-muted text-center py-3">Нет вопросов. Нажмите «Добавить вопрос».</p>';
+                    return;
+                }
+                container.innerHTML = data.questions.map((q, i) => {
+                    const correctCount = q.choices.filter(c => c.is_correct).length;
+                    const typeLabel = q.question_type === 'single' ? 'Один.' : 'Множ.';
+                    return `<div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${i + 1}. ${escapeHtml(q.text)}</strong>
+                            <br><small class="text-muted">${typeLabel} | Баллы: ${q.score} | Вариантов: ${q.choices.length} (прав.: ${correctCount})</small>
+                        </div>
+                        <div class="d-flex gap-1 flex-shrink-0">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editQuestion(${q.id})" title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteQuestion(${q.id})" title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            });
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function openQuestionModal(questionData) {
+        const modal = new bootstrap.Modal(document.getElementById('questionModal'));
+        const isNew = !questionData;
+        document.getElementById('qModalTitle').textContent = isNew ? 'Добавить вопрос' : 'Редактировать вопрос';
+        document.getElementById('qId').value = questionData ? questionData.id : '';
+        document.getElementById('qText').value = questionData ? questionData.text : '';
+        document.getElementById('qType').value = questionData ? questionData.question_type : 'single';
+        document.getElementById('qOrder').value = questionData ? questionData.order : '';
+        document.getElementById('qScore').value = questionData ? questionData.score : 1;
+        document.getElementById('deleteQuestionBtn').style.display = isNew ? 'none' : 'inline-block';
+
+        const choicesContainer = document.getElementById('choicesContainer');
+        choicesContainer.innerHTML = '';
+        const choices = questionData ? questionData.choices : [{text: '', is_correct: false}, {text: '', is_correct: false}];
+        choices.forEach((c, i) => addChoiceRow(c.text, c.is_correct));
+        document.getElementById('qModalForm').dataset.mode = isNew ? 'create' : 'edit';
+        modal.show();
+    }
+
+    function addChoiceRow(text, isCorrect) {
+        text = text || '';
+        isCorrect = !!isCorrect;
+        const row = document.createElement('div');
+        row.className = 'input-group mb-2 choice-row';
+        row.innerHTML = `
+            <input type="text" class="form-control choice-text" value="${escapeHtml(text)}" placeholder="Текст варианта">
+            <label class="input-group-text bg-light">
+                <input type="${document.getElementById('qType').value === 'single' ? 'radio' : 'checkbox'}" 
+                       class="form-check-input mt-0 choice-correct" 
+                       name="correctChoice" ${isCorrect ? 'checked' : ''}>
+                <span class="ms-1 small">Прав.</span>
+            </label>
+            <button type="button" class="btn btn-outline-danger remove-choice" title="Удалить вариант">&times;</button>
+        `;
+        row.querySelector('.remove-choice').addEventListener('click', () => row.remove());
+        document.getElementById('choicesContainer').appendChild(row);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadQuestions();
+
+        document.getElementById('addChoiceBtn').addEventListener('click', () => addChoiceRow('', false));
+
+        document.getElementById('qType').addEventListener('change', function() {
+            const type = this.value;
+            document.querySelectorAll('.choice-correct').forEach(cb => {
+                cb.type = type === 'single' ? 'radio' : 'checkbox';
+                cb.name = 'correctChoice';
+            });
+        });
+
+        document.getElementById('saveQuestionBtn').addEventListener('click', function() {
+            const text = document.getElementById('qText').value.trim();
+            if (!text) { alert('Введите текст вопроса'); return; }
+            const choices = [];
+            const rows = document.querySelectorAll('.choice-row');
+            rows.forEach(row => {
+                const txt = row.querySelector('.choice-text').value.trim();
+                const correct = row.querySelector('.choice-correct').checked;
+                if (txt) choices.push({text: txt, is_correct: correct});
+            });
+            if (choices.length < 2) { alert('Добавьте минимум 2 варианта ответа'); return; }
+            if (!choices.some(c => c.is_correct)) { alert('Отметьте хотя бы один правильный ответ'); return; }
+
+            const body = {
+                text: text,
+                question_type: document.getElementById('qType').value,
+                order: parseInt(document.getElementById('qOrder').value) || 0,
+                score: parseInt(document.getElementById('qScore').value) || 1,
+                choices: choices,
+            };
+
+            const mode = document.getElementById('qModalForm').dataset.mode;
+            const qId = document.getElementById('qId').value;
+
+            const url = mode === 'create' ? API_CREATE_URL : "{% url 'testing:api_question_update' 0 %}".replace('0', qId);
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+                body: JSON.stringify(body),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { alert(data.error); return; }
+                bootstrap.Modal.getInstance(document.getElementById('questionModal')).hide();
+                loadQuestions();
+            })
+            .catch(err => { alert('Ошибка сохранения'); console.error(err); });
+        });
+
+        document.getElementById('deleteQuestionBtn').addEventListener('click', function() {
+            if (!confirm('Удалить вопрос?')) return;
+            const qId = document.getElementById('qId').value;
+            fetch("{% url 'testing:api_question_update' 0 %}".replace('0', qId), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+                body: JSON.stringify({method: 'delete'}),
+            })
+            .then(r => r.json())
+            .then(data => {
+                bootstrap.Modal.getInstance(document.getElementById('questionModal')).hide();
+                loadQuestions();
+            });
+        });
+
+        document.getElementById('addQuestionBtn').addEventListener('click', () => openQuestionModal(null));
+    });
+
+    function editQuestion(id) {
+        if (!API_LIST_URL) return;
+        fetch(API_LIST_URL)
+            .then(r => r.json())
+            .then(data => {
+                const q = data.questions.find(q => q.id === id);
+                if (q) openQuestionModal(q);
+            });
+    }
+
+    function deleteQuestion(id) {
+        if (!confirm('Удалить вопрос?')) return;
+        fetch("{% url 'testing:api_question_update' 0 %}".replace('0', id), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
+            body: JSON.stringify({method: 'delete'}),
+        })
+        .then(r => r.json())
+        .then(data => { loadQuestions(); });
+    }
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
+    <div class="row">
+        <div class="col-lg-5">
+            <div class="card mb-4">
                 <div class="card-header">
                     <h4 class="mb-0">
                         {% if editing %}
@@ -16,7 +194,7 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" id="testForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="nameInput" class="form-label">Название теста <span class="text-danger">*</span></label>
@@ -40,7 +218,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="descInput" class="form-label">Описание</label>
-                            <textarea name="description" id="descInput" class="form-control" rows="4"
+                            <textarea name="description" id="descInput" class="form-control" rows="3"
                                       placeholder="Краткое описание теста (необязательно)">{% if form_data.description %}{{ form_data.description }}{% elif test %}{{ test.description|default:'' }}{% endif %}</textarea>
                         </div>
                         <div class="d-flex gap-2">
@@ -57,6 +235,74 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+
+        {% if editing %}
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-question-circle me-2"></i>Вопросы теста</h5>
+                    <button type="button" class="btn btn-success btn-sm" id="addQuestionBtn">
+                        <i class="bi bi-plus-lg me-1"></i>Добавить вопрос
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="questionsContainer">
+                        <p class="text-muted text-center py-3">Загрузка...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно вопроса -->
+<div class="modal fade" id="questionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qModalTitle">Вопрос</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="qModalForm">
+                <input type="hidden" id="qId">
+                <div class="mb-3">
+                    <label for="qText" class="form-label">Текст вопроса <span class="text-danger">*</span></label>
+                    <textarea id="qText" class="form-control" rows="3" placeholder="Введите текст вопроса..."></textarea>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="qType" class="form-label">Тип</label>
+                        <select id="qType" class="form-select">
+                            <option value="single">Одиночный выбор</option>
+                            <option value="multiple">Множественный выбор</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="qOrder" class="form-label">Порядок</label>
+                        <input type="number" id="qOrder" class="form-control" value="0" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="qScore" class="form-label">Баллы</label>
+                        <input type="number" id="qScore" class="form-control" value="1" min="1">
+                    </div>
+                </div>
+                <label class="form-label">Варианты ответов <span class="text-danger">*</span></label>
+                <div id="choicesContainer"></div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="addChoiceBtn">
+                    <i class="bi bi-plus me-1"></i>Добавить вариант
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger me-auto" id="deleteQuestionBtn" style="display:none;">
+                    <i class="bi bi-trash me-1"></i>Удалить вопрос
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveQuestionBtn">
+                    <i class="bi bi-check-lg me-1"></i>Сохранить
+                </button>
             </div>
         </div>
     </div>
