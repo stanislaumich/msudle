@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Успеваемость — {{ course.short_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-bar-chart me-2"></i>Успеваемость
+            </h2>
+            <p class="text-muted mb-0">{{ course.full_name }}</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+        </a>
+    </div>
+
+    {% if groups_data %}
+        {% for gd in groups_data %}
+        <div class="card shadow-sm border-0 mb-5" style="border-radius: 12px; background-color: rgba(200, 225, 255, 0.10);">
+            <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.3) !important; border-radius: 12px 12px 0 0 !important;">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-people me-2"></i>
+                    Группа: {{ gd.group.group_number }}{% if gd.group.subgroup_number %}/{{ gd.group.subgroup_number }}{% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-0" style="overflow-x: auto;">
+                {% if gd.student_rows %}
+                <table class="table table-bordered table-sm mb-0" style="min-width: 800px;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-nowrap p-2" style="position: sticky; left: 0; background: inherit; z-index: 1;">Студент</th>
+                            {% for unit in gd.control_units %}
+                            <th class="text-center p-2" style="min-width: 60px;">{{ unit.title|slice:":20" }}{% if unit.title|length > 20 %}…{% endif %}</th>
+                            {% endfor %}
+                            <th class="text-center p-2" style="min-width: 80px; background-color: rgba(255, 235, 150, 0.3);">
+                                Σ баллов<br><small class="text-muted">(средний)</small>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in gd.student_rows %}
+                        <tr>
+                            <td class="text-nowrap p-2" style="position: sticky; left: 0; background: rgba(235, 242, 255, 0.90); z-index: 1;">
+                                <small>{{ row.student.fio }}</small>
+                            </td>
+                            {% for cell in row.cells %}
+                            <td class="text-center p-1">
+                                {% if cell.answer %}
+                                    {% if cell.answer.checked %}
+                                        {# Проверено — зелёная галочка #}
+                                        <a href="#" class="btn-grade-icon text-decoration-none"
+                                           data-answer-id="{{ cell.answer.id }}"
+                                           data-student="{{ row.student.fio|escapejs }}"
+                                           data-unit="{{ cell.unit.title|escapejs }}"
+                                           data-status="checked"
+                                           data-score="{{ cell.answer.score|default:'' }}"
+                                           data-passed="{% if cell.answer.passed is not None %}{{ cell.answer.passed|yesno:'зачёт,не зачёт' }}{% endif %}">
+                                            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                            {% if cell.answer.score is not None %}
+                                            <small class="d-block">{{ cell.answer.score }}</small>
+                                            {% elif cell.answer.passed is True %}
+                                            <small class="d-block">+</small>
+                                            {% elif cell.answer.passed is False %}
+                                            <small class="d-block">&minus;</small>
+                                            {% endif %}
+                                        </a>
+                                    {% else %}
+                                        {# Не проверено — жёлтый вопрос + 0 #}
+                                        <a href="#" class="btn-grade-icon text-decoration-none"
+                                           data-answer-id="{{ cell.answer.id }}"
+                                           data-student="{{ row.student.fio|escapejs }}"
+                                           data-unit="{{ cell.unit.title|escapejs }}"
+                                           data-status="unchecked">
+                                            <i class="bi bi-question-circle-fill text-warning fs-4"></i>
+                                            <small class="d-block">0</small>
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    {# Нет ответа — красный крестик + 0 #}
+                                    <a href="#" class="btn-grade-icon text-decoration-none"
+                                       data-student="{{ row.student.fio|escapejs }}"
+                                       data-unit="{{ cell.unit.title|escapejs }}"
+                                       data-status="no_answer">
+                                        <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+                                        <small class="d-block">0</small>
+                                    </a>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="text-center p-1 fw-bold" style="background-color: rgba(255, 235, 150, 0.15);">
+                                {{ row.total_score }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {# Итоговая строка по группе — сумма и средний балл #}
+                        <tr style="border-top: 2px solid #999;">
+                            <td class="text-nowrap p-2 fw-bold" style="position: sticky; left: 0; background: rgba(255, 245, 200, 0.90); z-index: 1;">
+                                <small>Итого по группе</small>
+                            </td>
+                            {% for unit in gd.control_units %}
+                            <td class="text-center p-1" style="background-color: rgba(255, 245, 200, 0.15);"></td>
+                            {% endfor %}
+                            <td class="text-center p-1 fw-bold" style="background-color: rgba(255, 245, 200, 0.3);">
+                                {{ gd.group_sum_score }}<br><small class="text-muted">ср. {{ gd.group_avg_score }}</small>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted p-3 mb-0">В этой группе нет студентов.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-people display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">На курс не подписана ни одна группа</h4>
+        <a href="{% url 'course:course_edit' course.id %}" class="btn btn-primary mt-2">
+            <i class="bi bi-pencil me-1"></i>Перейти к редактированию
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{# Модалка просмотра ответа #}
+<div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-card-checklist text-primary me-2"></i>Просмотр ответа</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Студент:</strong> <span id="gradeStudentName"></span></p>
+                <p><strong>Задание:</strong> <span id="gradeUnitTitle"></span></p>
+                <p id="gradeStatusInfo"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const gradeModal = document.getElementById('gradeModal');
+        if (gradeModal) {
+            const bsModal = new bootstrap.Modal(gradeModal);
+            document.querySelectorAll('.btn-grade-icon').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const student = this.getAttribute('data-student');
+                    const unit = this.getAttribute('data-unit');
+                    const status = this.getAttribute('data-status');
+                    const score = this.getAttribute('data-score');
+                    const passed = this.getAttribute('data-passed');
+
+                    document.getElementById('gradeStudentName').textContent = student;
+                    document.getElementById('gradeUnitTitle').textContent = unit;
+
+                    let statusText = '';
+                    if (status === 'checked') {
+                        statusText = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Проверено</span>';
+                        if (score) statusText += ' — ' + score + ' баллов';
+                        if (passed) statusText += ' — ' + passed;
+                    } else if (status === 'unchecked') {
+                        statusText = '<span class="text-warning"><i class="bi bi-question-circle-fill me-1"></i>Не проверено</span>';
+                    } else {
+                        statusText = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Нет ответа</span>';
+                    }
+                    document.getElementById('gradeStatusInfo').innerHTML = statusText;
+
+                    bsModal.show();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .btn-grade-icon { display: inline-block; cursor: pointer; }
+    .btn-grade-icon:hover { opacity: 0.7; }
+</style>
+{% endblock %}

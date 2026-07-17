@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block title %}Msudle — Образовательная платформа{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-primary text-white py-5">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <h1 class="display-4 fw-bold mb-3">Добро пожаловать в Msudle</h1>
+                <p class="lead mb-4">
+                    Современная образовательная платформа, построенная на Django и Bootstrap.
+                    Учитесь в удобном темпе, получайте новые знания и развивайте навыки.
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="#" class="btn btn-light btn-lg">
+                        <i class="bi bi-play-fill me-2"></i>Начать обучение
+                    </a>
+                    <a href="#" class="btn btn-outline-light btn-lg">
+                        <i class="bi bi-info-circle me-2"></i>Узнать больше
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <i class="bi bi-mortarboard-fill display-1"></i>
+                <div class="mt-3">
+                    <span class="badge bg-light text-primary fs-6 me-2">Python</span>
+                    <span class="badge bg-light text-primary fs-6 me-2">Django</span>
+                    <span class="badge bg-light text-primary fs-6 me-2">Bootstrap 5</span>
+                    <span class="badge bg-light text-primary fs-6">SQLite</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5">
+    <div class="container py-4">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Возможности платформы</h2>
+            <p class="text-muted lead">Всё, что нужно для эффективного обучения</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon bg-primary-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                             style="width: 80px; height: 80px;">
+                            <i class="bi bi-book text-primary fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Курсы</h5>
+                        <p class="card-text text-muted">Структурированные учебные материалы с практическими заданиями и тестами для закрепления знаний.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon bg-success-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                             style="width: 80px; height: 80px;">
+                            <i class="bi bi-people text-success fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Сообщество</h5>
+                        <p class="card-text text-muted">Общайтесь с преподавателями и студентами, делитесь опытом и получайте поддержку.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon bg-warning-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                             style="width: 80px; height: 80px;">
+                            <i class="bi bi-graph-up text-warning fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Прогресс</h5>
+                        <p class="card-text text-muted">Отслеживайте свои достижения, получайте сертификаты и ставьте новые цели.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="bg-light py-5">
+    <div class="container py-4">
+        <div class="row g-4 text-center">
+            <div class="col-6 col-md-3">
+                <div class="display-4 fw-bold text-primary">50+</div>
+                <p class="text-muted">Курсов</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="display-4 fw-bold text-success">5000+</div>
+                <p class="text-muted">Студентов</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="display-4 fw-bold text-warning">100+</div>
+                <p class="text-muted">Преподавателей</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="display-4 fw-bold text-info">4.8</div>
+                <p class="text-muted">Рейтинг</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5">
+    <div class="container py-4 text-center">
+        <h2 class="fw-bold mb-3">Готовы начать обучение?</h2>
+        <p class="text-muted lead mb-4">Присоединяйтесь к тысячам студентов уже сегодня.</p>
+        <a href="#" class="btn btn-primary btn-lg">
+            <i class="bi bi-person-plus me-2"></i>Зарегистрироваться
+        </a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Текущий год в футере обновляется через Django, но можно и через JS
+    console.log('Msudle — образовательная платформа запущена!');
+</script>
+{% endblock %}

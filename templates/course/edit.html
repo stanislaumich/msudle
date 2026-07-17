@@ -1,0 +1,606 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Редактирование курса — {{ course.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {# Заголовок #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-pencil-square me-2"></i>Редактирование курса
+            </h2>
+            <p class="text-muted mb-0">{{ course.full_name }}</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+        </a>
+    </div>
+
+    {# Разделы #}
+    {% for section in sections %}
+    <div class="card shadow-sm border-0 mb-4 course-edit-card">
+        <div class="card-header d-flex justify-content-between align-items-center py-3">
+            <a class="section-toggle text-decoration-none text-reset d-flex align-items-center flex-grow-1 cursor-pointer"
+               data-bs-toggle="collapse" href="#sectionBody{{ section.id }}" role="button"
+               aria-expanded="false" title="Развернуть/свернуть раздел">
+                <i class="bi bi-folder2-open me-2"></i>
+                <span class="fw-bold">{{ section.name }}</span>
+                <small class="text-muted ms-2">(порядок: {{ section.order }})</small>
+                <i class="bi bi-chevron-down collapse-icon ms-2"></i>
+            </a>
+            <div class="d-flex gap-2 ms-3">
+                <form method="post" action="{% url 'course:section_toggle_visibility' section.id %}" class="d-inline"
+                      title="{% if section.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                        {% if section.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
+                    </button>
+                </form>
+                <button type="button" class="btn btn-outline-primary btn-sm btn-edit-section"
+                        title="Редактировать раздел" data-section-id="{{ section.id }}"
+                        data-section-name="{{ section.name|escapejs }}" data-section-order="{{ section.order }}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <form method="post" action="{% url 'course:section_delete' section.id %}" class="d-inline"
+                      onsubmit="return confirm('Удалить раздел «{{ section.name }}»? Все темы и единицы внутри будут удалены.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Удалить раздел"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+
+        <div class="collapse" id="sectionBody{{ section.id }}">
+        <div class="card-body p-4">
+            {# Темы раздела #}
+            {% if section.topics.all %}
+                {% for topic in section.topics.all %}
+                <div class="topic-block mb-3 ms-3 p-3 border rounded-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="fw-bold mb-1"><i class="bi bi-bookmark me-2"></i>{{ topic.entity_title }}: {{ topic.content }}</h6>
+                            <small class="text-muted">Порядок: {{ topic.order }}</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <form method="post" action="{% url 'course:topic_toggle_visibility' topic.id %}" class="d-inline"
+                                  title="{% if topic.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-warning btn-sm">
+                                    {% if topic.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-edit-topic"
+                                    title="Редактировать тему" data-topic-id="{{ topic.id }}"
+                                    data-topic-entity-title="{{ topic.entity_title|escapejs }}"
+                                    data-topic-content="{{ topic.content|escapejs }}" data-topic-order="{{ topic.order }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-delete-topic"
+                                    title="Удалить тему" data-topic-id="{{ topic.id }}"
+                                    data-topic-content="{{ topic.content|escapejs }}" data-units-count="{{ topic.units.count }}"
+                                    data-section-name="{{ section.name|escapejs }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {% if topic.units.all %}
+                    <div class="units-list ms-3 mt-2">
+                        <small class="text-muted d-block mb-2"><i class="bi bi-files me-1"></i>Единицы обучения:</small>
+                        {% for unit in topic.units.all %}
+                        <div class="unit-item d-flex justify-content-between align-items-center py-2 px-3 mb-1 rounded-3 bg-body-secondary">
+                            <div>
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <span>{{ unit.title }}</span>
+                                <small class="text-muted ms-2">
+                                    ({% if unit.file %}
+                                        <a href="{{ unit.file.url }}" target="_blank" class="text-decoration-none">{{ unit.get_content_type_display }} "{{ unit.filename }}"</a>
+                                    {% elif unit.link %}
+                                        <a href="{{ unit.link }}" target="_blank" class="text-decoration-none">Ссылка</a>
+                                    {% else %}{{ unit.get_content_type_display }}{% endif %}
+                                    {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}, порядок: {{ unit.order }})
+                                </small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <form method="post" action="{% url 'course:unit_toggle_visibility' unit.id %}" class="d-inline"
+                                      title="{% if unit.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                                        {% if unit.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-outline-primary btn-sm btn-edit-unit"
+                                        title="Редактировать единицу" data-unit-id="{{ unit.id }}"
+                                        data-unit-title="{{ unit.title|escapejs }}" data-unit-order="{{ unit.order }}"
+                                        data-unit-link="{{ unit.link|default:''|escapejs }}"
+                                        data-unit-content-type="{{ unit.content_type }}"
+                                        data-unit-grading-type="{{ unit.grading_type|default:'' }}"
+                                        data-unit-max-score="{{ unit.max_score }}"
+                                        data-unit-filename="{{ unit.filename|escapejs }}"
+                                        data-unit-has-file="{{ unit.file|yesno:'true,false' }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" action="{% url 'course:unit_delete' unit.id %}" class="d-inline"
+                                      onsubmit="return confirm('Удалить единицу «{{ unit.title|escapejs }}»?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Удалить единицу"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}<p class="text-muted small ms-3 mb-2">Нет единиц обучения</p>{% endif %}
+
+                    <div class="ms-3 mt-2">
+                        <button type="button" class="btn btn-outline-success btn-sm btn-add-unit"
+                                data-target-type="topic" data-target-id="{{ topic.id }}" data-target-name="{{ topic.content|escapejs }}">
+                            <i class="bi bi-plus-lg me-1"></i>Добавить единицу в тему
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}<p class="text-muted ms-3">В этом разделе пока нет тем</p>{% endif %}
+
+            {# Прямые единицы раздела #}
+            {% if section.direct_units.all %}
+            <div class="direct-units-block ms-3 mt-4 p-3 border rounded-3" style="border-style: dashed !important;">
+                <h6 class="fw-bold mb-3"><i class="bi bi-files me-2"></i>Единицы раздела (без темы):</h6>
+                {% for unit in section.direct_units.all %}
+                <div class="unit-item d-flex justify-content-between align-items-center py-2 px-3 mb-1 rounded-3 bg-body-secondary">
+                    <div>
+                        <i class="bi bi-file-earmark me-2"></i><span>{{ unit.title }}</span>
+                        <small class="text-muted ms-2">
+                            ({% if unit.file %}<a href="{{ unit.file.url }}" target="_blank" class="text-decoration-none">{{ unit.get_content_type_display }} "{{ unit.filename }}"</a>
+                            {% elif unit.link %}<a href="{{ unit.link }}" target="_blank" class="text-decoration-none">Ссылка</a>
+                            {% else %}{{ unit.get_content_type_display }}{% endif %}
+                            {% if unit.grading_type %}, {{ unit.get_grading_type_display }}{% endif %}, порядок: {{ unit.order }})
+                        </small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <form method="post" action="{% url 'course:unit_toggle_visibility' unit.id %}" class="d-inline"
+                              title="{% if unit.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-warning btn-sm">
+                                {% if unit.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-outline-primary btn-sm btn-edit-unit"
+                                title="Редактировать единицу" data-unit-id="{{ unit.id }}"
+                                data-unit-title="{{ unit.title|escapejs }}" data-unit-order="{{ unit.order }}"
+                                data-unit-link="{{ unit.link|default:''|escapejs }}"
+                                data-unit-content-type="{{ unit.content_type }}"
+                                data-unit-grading-type="{{ unit.grading_type|default:'' }}"
+                                data-unit-max-score="{{ unit.max_score }}"
+                                data-unit-filename="{{ unit.filename|escapejs }}"
+                                data-unit-has-file="{{ unit.file|yesno:'true,false' }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" action="{% url 'course:unit_delete' unit.id %}" class="d-inline"
+                              onsubmit="return confirm('Удалить единицу «{{ unit.title|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Удалить единицу"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="ms-3 mt-3 d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-success btn-sm btn-add-topic"
+                        data-section-id="{{ section.id }}" data-section-name="{{ section.name|escapejs }}">
+                    <i class="bi bi-plus-lg me-1"></i>Добавить тему
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm btn-add-unit"
+                        data-target-type="section" data-target-id="{{ section.id }}" data-target-name="{{ section.name|escapejs }}">
+                    <i class="bi bi-plus-lg me-1"></i>Добавить единицу в раздел
+                </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-5">
+        <i class="bi bi-folder-x display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">В этом курсе пока нет разделов</h4>
+    </div>
+    {% endfor %}
+
+    <div class="text-center mt-4 mb-3">
+        <a href="#" class="btn btn-success"><i class="bi bi-plus-lg me-2"></i>Добавить раздел</a>
+    </div>
+
+    {# Подписка групп #}
+    <div class="card shadow-sm border-0 mb-4" style="background-color: rgba(200, 225, 255, 0.10); border-radius: 12px;">
+        <div class="card-body p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2"></i>Подписка групп на курс</h5>
+            {% if enrolled_groups %}
+            <div class="mb-3">
+                <small class="text-muted d-block mb-2">Подписаны:</small>
+                {% for eg in enrolled_groups %}
+                <span class="badge bg-primary me-2 mb-1 p-2 d-inline-flex align-items-center">
+                    {{ eg.group.group_number }}{% if eg.group.subgroup_number %}/{{ eg.group.subgroup_number }}{% endif %}
+                    <form method="post" action="{% url 'course:course_unenroll_group' eg.id %}" class="d-inline ms-1"
+                          onsubmit="return confirm('Отписать группу «{{ eg.group|escapejs }}» от курса?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-close btn-close-white" style="font-size: 0.6rem;" title="Отписать"></button>
+                    </form>
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}<p class="text-muted small mb-3">Пока ни одна группа не подписана на курс.</p>{% endif %}
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#enrollModal">
+                    <i class="bi bi-person-plus me-1"></i>Подписать группы
+                </button>
+                {% if enrolled_groups %}
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#unenrollModal">
+                    <i class="bi bi-person-dash me-1"></i>Отписать группы
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ============ МОДАЛЬНЫЕ ОКНА ============ #}
+
+{# Подписка #}
+<div class="modal fade" id="enrollModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-person-plus text-primary me-2"></i>Подписать группы</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" action="{% url 'course:course_enroll_groups' course.id %}">{% csrf_token %}
+        <div class="modal-body">
+            <div class="row g-2">
+                {% for group in all_groups %}
+                <div class="col-6 col-md-4 col-lg-3"><div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="group_ids" value="{{ group.id }}" id="group{{ group.id }}"
+                           {% if group.id in enrolled_group_ids %}disabled{% endif %}>
+                    <label class="form-check-label" for="group{{ group.id }}">
+                        {{ group.group_number }}{% if group.subgroup_number %}/{{ group.subgroup_number }}{% endif %}
+                        {% if group.id in enrolled_group_ids %}<span class="text-muted small">(уже)</span>{% endif %}
+                    </label>
+                </div></div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Подписать</button>
+        </div></form>
+    </div></div>
+</div>
+
+{# Отписка #}
+<div class="modal fade" id="unenrollModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-person-dash text-danger me-2"></i>Отписать группы</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            {% if enrolled_groups %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for eg in enrolled_groups %}
+                <form method="post" action="{% url 'course:course_unenroll_group' eg.id %}"
+                      onsubmit="return confirm('Отписать группу «{{ eg.group|escapejs }}»?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ eg.group.group_number }}{% if eg.group.subgroup_number %}/{{ eg.group.subgroup_number }}{% endif %} <i class="bi bi-x ms-1"></i></button>
+                </form>
+                {% endfor %}
+            </div>
+            {% else %}<p class="text-muted">Нет подписанных групп.</p>{% endif %}
+        </div>
+    </div></div>
+</div>
+
+{# Удаление темы #}
+<div class="modal fade" id="deleteTopicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Удаление темы</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p><strong id="topicContentDisplay"></strong></p>
+            <p id="topicUnitsInfo"></p>
+            <form method="post" id="deleteTopicForm">{% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Что делать с единицами этой темы?</label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="units_action" id="unitsActionDelete" value="delete" checked>
+                        <label class="form-check-label" for="unitsActionDelete"><i class="bi bi-trash text-danger me-1"></i>Удалить вместе с темой</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="units_action" id="unitsActionMove" value="move_to_section">
+                        <label class="form-check-label" for="unitsActionMove"><i class="bi bi-arrow-right text-primary me-1"></i>Перенести в раздел «<span id="sectionNameDisplay"></span>»</label>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Удалить тему</button>
+                </div>
+            </form>
+        </div>
+    </div></div>
+</div>
+
+{# Добавление темы #}
+<div class="modal fade" id="addTopicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-circle text-success me-2"></i>Добавить тему</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="addTopicForm">{% csrf_token %}
+        <div class="modal-body">
+            <p class="text-muted mb-3">Добавление в раздел: <strong id="addTopicSectionName"></strong></p>
+            <div class="mb-3"><label for="entityTitle" class="form-label">Название сущности</label><input type="text" class="form-control" id="entityTitle" name="entity_title" placeholder="Тема, Лекция" maxlength="100" required></div>
+            <div class="mb-3"><label for="topicContent" class="form-label">Содержание</label><input type="text" class="form-control" id="topicContent" name="content" placeholder="Введение" maxlength="500" required></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Добавить тему</button>
+        </div></form>
+    </div></div>
+</div>
+
+{# Добавление единицы #}
+<div class="modal fade" id="addUnitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-circle text-success me-2"></i>Добавить единицу</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="addUnitForm" enctype="multipart/form-data">{% csrf_token %}
+        <div class="modal-body">
+            <p class="text-muted mb-3">Добавление в: <strong id="addUnitTargetName"></strong></p>
+            <div class="mb-3"><label for="unitTitle" class="form-label">Название единицы</label><input type="text" class="form-control" id="unitTitle" name="title" maxlength="300" required></div>
+            <div class="mb-3">
+                <label class="form-label">Тип единицы</label>
+                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeMethodical" value="methodical"><label class="form-check-label" for="unitTypeMethodical"><i class="bi bi-journal-text me-1"></i>Методическая</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeLecture" value="lecture" checked><label class="form-check-label" for="unitTypeLecture"><i class="bi bi-easel me-1"></i>Лекционная</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeControl" value="control"><label class="form-check-label" for="unitTypeControl"><i class="bi bi-check-circle me-1"></i>Контрольная</label></div>
+            </div>
+            <div class="mb-3" id="unitGradingBlock" style="display:none;">
+                <label class="form-label">Способ оценивания</label>
+                <div class="form-check"><input class="form-check-input" type="radio" name="grading_type" id="unitGradingPassFail" value="pass_fail"><label class="form-check-label" for="unitGradingPassFail">Зачтено / не зачтено</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="grading_type" id="unitGradingScore100" value="score_100"><label class="form-check-label" for="unitGradingScore100">Баллы (0–100)</label></div>
+                <div class="mt-2"><label for="unitMaxScore" class="form-label">Максимальный балл</label><input type="number" class="form-control" id="unitMaxScore" name="max_score" value="10" min="1" max="1000" style="max-width:100px;"></div>
+            </div>
+            <div class="mb-3"><label for="unitFile" class="form-label">Файл</label><input type="file" class="form-control" id="unitFile" name="file"><small class="text-muted">PDF, DOC, DOCX, JPG</small></div>
+            <div class="mb-3"><label for="unitLink" class="form-label">Ссылка</label><input type="url" class="form-control" id="unitLink" name="link" maxlength="500"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Добавить</button>
+        </div></form>
+    </div></div>
+</div>
+
+{# Редактирование раздела #}
+<div class="modal fade" id="editSectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil-square text-primary me-2"></i>Редактировать раздел</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="editSectionForm">{% csrf_token %}
+        <div class="modal-body">
+            <div class="mb-3"><label for="editSectionName" class="form-label">Название</label><input type="text" class="form-control" id="editSectionName" name="name" maxlength="200" required></div>
+            <div class="mb-3"><label for="editSectionOrder" class="form-label">Порядок</label><input type="number" class="form-control" id="editSectionOrder" name="order" min="1" style="max-width:120px;" required></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Сохранить</button>
+        </div></form>
+    </div></div>
+</div>
+
+{# Редактирование темы #}
+<div class="modal fade" id="editTopicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil-square text-primary me-2"></i>Редактировать тему</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="editTopicForm">{% csrf_token %}
+        <div class="modal-body">
+            <div class="mb-3"><label for="editTopicEntityTitle" class="form-label">Название сущности</label><input type="text" class="form-control" id="editTopicEntityTitle" name="entity_title" maxlength="100" required></div>
+            <div class="mb-3"><label for="editTopicContent" class="form-label">Содержание</label><input type="text" class="form-control" id="editTopicContent" name="content" maxlength="500" required></div>
+            <div class="mb-3"><label for="editTopicOrder" class="form-label">Порядок</label><input type="number" class="form-control" id="editTopicOrder" name="order" min="1" style="max-width:120px;" required></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Сохранить</button>
+        </div></form>
+    </div></div>
+</div>
+
+{# Редактирование единицы #}
+<div class="modal fade" id="editUnitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil-square text-primary me-2"></i>Редактировать единицу</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="editUnitForm" enctype="multipart/form-data">{% csrf_token %}
+        <div class="modal-body">
+            <div class="mb-3"><label for="editUnitTitle" class="form-label">Название</label><input type="text" class="form-control" id="editUnitTitle" name="title" maxlength="300" required></div>
+            <div class="mb-3">
+                <label class="form-label">Тип единицы</label>
+                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeMethodical" value="methodical"><label class="form-check-label" for="editUnitTypeMethodical">Методическая</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeLecture" value="lecture"><label class="form-check-label" for="editUnitTypeLecture">Лекционная</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeControl" value="control"><label class="form-check-label" for="editUnitTypeControl">Контрольная</label></div>
+            </div>
+            <div class="mb-3" id="editUnitGradingBlock" style="display:none;">
+                <label class="form-label">Способ оценивания</label>
+                <div class="form-check"><input class="form-check-input" type="radio" name="edit_grading_type" id="editUnitGradingPassFail" value="pass_fail"><label class="form-check-label" for="editUnitGradingPassFail">Зачтено / не зачтено</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="edit_grading_type" id="editUnitGradingScore100" value="score_100"><label class="form-check-label" for="editUnitGradingScore100">Баллы (0–100)</label></div>
+                <div class="mt-2"><label for="editUnitMaxScore" class="form-label">Максимальный балл</label><input type="number" class="form-control" id="editUnitMaxScore" name="edit_max_score" value="10" min="1" max="1000" style="max-width:100px;"></div>
+            </div>
+            <div class="mb-3" id="editUnitCurrentFile" style="display:none;"><label class="form-label">Текущий файл</label><div class="text-muted small"><i class="bi bi-file-earmark me-1"></i><span id="editUnitCurrentFileName"></span></div></div>
+            <div class="mb-3"><label for="editUnitFile" class="form-label">Заменить файл</label><input type="file" class="form-control" id="editUnitFile" name="file"><small class="text-muted">Оставьте пустым, чтобы сохранить текущий</small></div>
+            <div class="mb-3"><label for="editUnitLink" class="form-label">Ссылка</label><input type="url" class="form-control" id="editUnitLink" name="link" maxlength="500"></div>
+            <div class="mb-3"><label for="editUnitOrder" class="form-label">Порядок</label><input type="number" class="form-control" id="editUnitOrder" name="order" min="1" style="max-width:120px;" required></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Сохранить</button>
+        </div></form>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Вспомогательная: показать/скрыть блок grading в зависимости от выбранного content_type
+        function toggleGradingBlock(contentTypeRadioName, gradingBlockId) {
+            const controlRadio = document.querySelector('input[name="' + contentTypeRadioName + '"][value="control"]');
+            const gradingBlock = document.getElementById(gradingBlockId);
+            if (!controlRadio || !gradingBlock) return;
+            const radios = document.querySelectorAll('input[name="' + contentTypeRadioName + '"]');
+            function update() {
+                const checked = document.querySelector('input[name="' + contentTypeRadioName + '"]:checked');
+                gradingBlock.style.display = (checked && checked.value === 'control') ? '' : 'none';
+            }
+            radios.forEach(function(r) { r.addEventListener('change', update); });
+            update();
+        }
+
+        // Добавление единицы — grading toggle
+        toggleGradingBlock('content_type', 'unitGradingBlock');
+        // Редактирование единицы — grading toggle
+        toggleGradingBlock('edit_content_type', 'editUnitGradingBlock');
+
+        // --- Редактирование раздела ---
+        const editSectionModal = document.getElementById('editSectionModal');
+        if (editSectionModal) {
+            const editSectionBsModal = new bootstrap.Modal(editSectionModal);
+            document.querySelectorAll('.btn-edit-section').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const sectionId = this.getAttribute('data-section-id');
+                    document.getElementById('editSectionForm').action = '{% url "course:section_edit" 0 %}'.replace('0', sectionId);
+                    document.getElementById('editSectionName').value = this.getAttribute('data-section-name');
+                    document.getElementById('editSectionOrder').value = this.getAttribute('data-section-order');
+                    editSectionBsModal.show();
+                });
+            });
+        }
+
+        // --- Редактирование темы ---
+        const editTopicModal = document.getElementById('editTopicModal');
+        if (editTopicModal) {
+            const editTopicBsModal = new bootstrap.Modal(editTopicModal);
+            document.querySelectorAll('.btn-edit-topic').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const topicId = this.getAttribute('data-topic-id');
+                    document.getElementById('editTopicForm').action = '{% url "course:topic_edit" 0 %}'.replace('0', topicId);
+                    document.getElementById('editTopicEntityTitle').value = this.getAttribute('data-topic-entity-title');
+                    document.getElementById('editTopicContent').value = this.getAttribute('data-topic-content');
+                    document.getElementById('editTopicOrder').value = this.getAttribute('data-topic-order');
+                    editTopicBsModal.show();
+                });
+            });
+        }
+
+        // --- Редактирование единицы ---
+        const editUnitModal = document.getElementById('editUnitModal');
+        if (editUnitModal) {
+            const editBsModal = new bootstrap.Modal(editUnitModal);
+            document.querySelectorAll('.btn-edit-unit').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const unitId = this.getAttribute('data-unit-id');
+                    document.getElementById('editUnitForm').action = '{% url "course:unit_edit" 0 %}'.replace('0', unitId);
+                    document.getElementById('editUnitTitle').value = this.getAttribute('data-unit-title');
+                    document.getElementById('editUnitLink').value = this.getAttribute('data-unit-link');
+                    document.getElementById('editUnitOrder').value = this.getAttribute('data-unit-order');
+                    document.getElementById('editUnitFile').value = '';
+
+                    const contentType = this.getAttribute('data-unit-content-type') || 'lecture';
+                    const gradingType = this.getAttribute('data-unit-grading-type') || '';
+                    const ctRadio = document.querySelector('input[name="edit_content_type"][value="' + contentType + '"]');
+                    if (ctRadio) ctRadio.checked = true;
+
+                    if (gradingType) {
+                        const gtRadio = document.querySelector('input[name="edit_grading_type"][value="' + gradingType + '"]');
+                        if (gtRadio) gtRadio.checked = true;
+                    }
+
+                    const hasFile = this.getAttribute('data-unit-has-file') === 'true';
+                    const filename = this.getAttribute('data-unit-filename');
+                    if (hasFile && filename) {
+                        document.getElementById('editUnitCurrentFileName').textContent = filename;
+                        document.getElementById('editUnitCurrentFile').style.display = '';
+                    } else {
+                        document.getElementById('editUnitCurrentFile').style.display = 'none';
+                    }
+
+                    // max_score
+                    const maxScore = this.getAttribute('data-unit-max-score') || '10';
+                    const msInput = document.getElementById('editUnitMaxScore');
+                    if (msInput) msInput.value = maxScore;
+
+                    // Обновить видимость grading блока
+                    const checkedCt = document.querySelector('input[name="edit_content_type"]:checked');
+                    document.getElementById('editUnitGradingBlock').style.display = (checkedCt && checkedCt.value === 'control') ? '' : 'none';
+
+                    editBsModal.show();
+                });
+            });
+        }
+
+        // --- Добавление единицы ---
+        const addUnitModal = document.getElementById('addUnitModal');
+        if (addUnitModal) {
+            const addUnitBsModal = new bootstrap.Modal(addUnitModal);
+            document.querySelectorAll('.btn-add-unit').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const targetType = this.getAttribute('data-target-type');
+                    const targetId = this.getAttribute('data-target-id');
+                    document.getElementById('addUnitTargetName').textContent = '«' + this.getAttribute('data-target-name') + '»';
+                    if (targetType === 'topic') {
+                        document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_topic" 0 %}'.replace('0', targetId);
+                    } else {
+                        document.getElementById('addUnitForm').action = '{% url "course:unit_add_to_section" 0 %}'.replace('0', targetId);
+                    }
+                    document.getElementById('addUnitForm').reset();
+                    document.getElementById('unitTypeLecture').checked = true;
+                    document.getElementById('unitGradingBlock').style.display = 'none';
+                    addUnitBsModal.show();
+                });
+            });
+        }
+
+        // --- Добавление темы ---
+        const addTopicModal = document.getElementById('addTopicModal');
+        if (addTopicModal) {
+            const addBsModal = new bootstrap.Modal(addTopicModal);
+            document.querySelectorAll('.btn-add-topic').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const sectionId = this.getAttribute('data-section-id');
+                    document.getElementById('addTopicForm').action = '{% url "course:topic_add" 0 %}'.replace('0', sectionId);
+                    document.getElementById('addTopicSectionName').textContent = '«' + this.getAttribute('data-section-name') + '»';
+                    addBsModal.show();
+                });
+            });
+        }
+
+        // --- Удаление темы ---
+        const deleteTopicModal = document.getElementById('deleteTopicModal');
+        if (deleteTopicModal) {
+            const bsModal = new bootstrap.Modal(deleteTopicModal);
+            document.querySelectorAll('.btn-delete-topic').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const topicId = this.getAttribute('data-topic-id');
+                    document.getElementById('topicContentDisplay').textContent = 'Тема: «' + this.getAttribute('data-topic-content') + '»';
+                    document.getElementById('sectionNameDisplay').textContent = this.getAttribute('data-section-name');
+                    const unitsCount = parseInt(this.getAttribute('data-units-count'), 10);
+                    if (unitsCount > 0) {
+                        document.getElementById('topicUnitsInfo').innerHTML = '<span class="text-warning"><i class="bi bi-info-circle me-1"></i>В теме ' + unitsCount + ' единиц(ы). Выберите действие:</span>';
+                        document.getElementById('unitsActionMove').parentElement.style.display = '';
+                        document.getElementById('unitsActionDelete').checked = true;
+                    } else {
+                        document.getElementById('topicUnitsInfo').textContent = 'В теме нет единиц.';
+                        document.getElementById('unitsActionMove').parentElement.style.display = 'none';
+                        document.getElementById('unitsActionDelete').checked = true;
+                    }
+                    document.getElementById('deleteTopicForm').action = '{% url "course:topic_delete" 0 %}'.replace('0', topicId);
+                    bsModal.show();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-edit-card { border-radius: 12px; background-color: rgba(200, 225, 255, 0.15); }
+    .course-edit-card .card-header { border-radius: 12px 12px 0 0 !important; background-color: rgba(180, 210, 250, 0.3) !important; }
+    .topic-block { background-color: rgba(220, 235, 255, 0.18); border-color: rgba(180, 210, 250, 0.3) !important; }
+    .unit-item { transition: background-color 0.2s ease; background-color: rgba(235, 242, 255, 0.25); }
+    .unit-item:hover { background-color: rgba(200, 225, 255, 0.4); }
+</style>
+{% endblock %}

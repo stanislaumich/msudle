@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load course_filters %}
+
+{% block title %}{{ course.full_name }} — Просмотр{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {# Заголовок #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-book me-2"></i>{{ course.full_name }}
+            </h2>
+            <p class="text-muted mb-0">{{ course.subject.department.full_name }}</p>
+        </div>
+        {% if is_student %}
+        <div class="d-flex gap-2">
+            <a href="{% url 'course:student_grades' course.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-bar-chart me-1"></i>Моя успеваемость
+            </a>
+            <a href="{% url 'student_home' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>На главную
+            </a>
+        </div>
+        {% else %}
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+        </a>
+        {% endif %}
+    </div>
+
+    {# Разделы #}
+    {% for section in sections %}
+    <div class="card shadow-sm border-0 mb-4 course-view-card">
+        <div class="card-header d-flex justify-content-between align-items-center py-3">
+            <a class="section-toggle text-decoration-none text-reset d-flex align-items-center flex-grow-1 cursor-pointer"
+               data-bs-toggle="collapse" href="#viewSectionBody{{ section.id }}" role="button"
+               aria-expanded="false" title="Развернуть/свернуть раздел">
+                <i class="bi bi-folder2-open me-2"></i>
+                <span class="fw-bold">{{ section.name }}</span>
+                <i class="bi bi-chevron-down collapse-icon ms-2"></i>
+            </a>
+        </div>
+
+        <div class="collapse" id="viewSectionBody{{ section.id }}">
+        <div class="card-body p-4">
+            {# Темы раздела #}
+            {% if section.topics.all %}
+                {% for topic in section.topics.all %}
+                <div class="topic-block mb-3 ms-3 p-3 border rounded-3">
+                    <h6 class="fw-bold mb-2">
+                        <i class="bi bi-bookmark me-2"></i>
+                        {{ topic.entity_title }}: {{ topic.content }}
+                    </h6>
+
+                    {# Единицы обучения внутри темы #}
+                    {% if topic.units.all %}
+                    <div class="units-list ms-3 mt-2">
+                        {% for unit in topic.units.all %}
+                        <div class="unit-item d-flex justify-content-between align-items-center py-2 px-3 mb-1 rounded-3 bg-body-secondary">
+                            <div>
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <span>{{ unit.title }}</span>
+                                <small class="text-muted ms-2">
+                                    {% if unit.file %}
+                                        <a href="{{ unit.file.url }}" target="_blank" class="text-decoration-none">
+                                            (Файл "{{ unit.filename }}")
+                                        </a>
+                                    {% elif unit.link %}
+                                        <a href="{{ unit.link }}" target="_blank" class="text-decoration-none">(Ссылка)</a>
+                                    {% endif %}
+                                </small>
+                                {% if unit.content_type == 'control' %}
+                                <span class="ms-2 fw-bold">
+                                    {% with ans=answer_map|get_item:unit.id %}
+                                    {% if ans %}
+                                        {% if ans.checked %}
+                                            {% if ans.score is not None %}[{{ ans.score }} баллов]{% elif ans.passed is not None %}[{% if ans.passed %}зачёт{% else %}не зачёт{% endif %}]{% else %}[проверено]{% endif %}
+                                            {% with last_date=ans.checked_modified_at|default:ans.checked_at %}{% if last_date %}[{{ last_date|date:"d.m.Y H:i" }}]{% endif %}{% endwith %}
+                                        {% else %}
+                                            [не проверено, изменён {{ ans.modified_at|date:"d.m.Y H:i" }}]
+                                        {% endif %}
+                                    {% else %}
+                                        [нет ответа]
+                                    {% endif %}
+                                    {% endwith %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% if is_student and unit.content_type == 'control' %}
+                            <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
+                                    data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
+                                <i class="bi bi-reply me-1"></i>Ответить
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small ms-3 mb-0">Нет материалов</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+            <p class="text-muted ms-3">В этом разделе пока нет тем</p>
+            {% endif %}
+
+            {# Прямые единицы раздела (без темы) #}
+            {% if section.direct_units.all %}
+            <div class="direct-units-block ms-3 mt-4 p-3 border rounded-3" style="border-style: dashed !important;">
+                <h6 class="fw-bold mb-3">
+                    <i class="bi bi-files me-2"></i>Материалы раздела:
+                </h6>
+                {% for unit in section.direct_units.all %}
+                <div class="unit-item d-flex justify-content-between align-items-center py-2 px-3 mb-1 rounded-3 bg-body-secondary">
+                    <div>
+                        <i class="bi bi-file-earmark me-2"></i>
+                        <span>{{ unit.title }}</span>
+                        <small class="text-muted ms-2">
+                            {% if unit.file %}
+                                <a href="{{ unit.file.url }}" target="_blank" class="text-decoration-none">
+                                    (Файл "{{ unit.filename }}")
+                                </a>
+                            {% elif unit.link %}
+                                <a href="{{ unit.link }}" target="_blank" class="text-decoration-none">(Ссылка)</a>
+                            {% endif %}
+                        </small>
+                        {% if unit.content_type == 'control' %}
+                        <span class="ms-2 fw-bold">
+                            {% with ans=answer_map|get_item:unit.id %}
+                            {% if ans %}
+                                {% if ans.checked %}
+                                    {% if ans.score is not None %}[{{ ans.score }} баллов]{% elif ans.passed is not None %}[{% if ans.passed %}зачёт{% else %}не зачёт{% endif %}]{% else %}[проверено]{% endif %}
+                                    {% with last_date=ans.checked_modified_at|default:ans.checked_at %}{% if last_date %}[{{ last_date|date:"d.m.Y H:i" }}]{% endif %}{% endwith %}
+                                {% else %}
+                                    [не проверено, изменён {{ ans.modified_at|date:"d.m.Y H:i" }}]
+                                {% endif %}
+                            {% else %}
+                                [нет ответа]
+                            {% endif %}
+                            {% endwith %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if is_student and unit.content_type == 'control' %}
+                    <button type="button" class="btn btn-danger btn-sm btn-answer flex-shrink-0"
+                            data-unit-id="{{ unit.id }}" data-unit-title="{{ unit.title|escapejs }}">
+                        <i class="bi bi-reply me-1"></i>Ответить
+                    </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-5">
+        <i class="bi bi-folder-x display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">В этом курсе пока нет разделов</h4>
+    </div>
+    {% endfor %}
+{# Модалка ответа студента #}
+<div class="modal fade" id="answerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-reply text-danger me-2"></i>Ответ на задание</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="answerForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Задание: <strong id="answerUnitTitle"></strong></p>
+                    <div class="mb-3">
+                        <label for="answerFile" class="form-label">Файл ответа</label>
+                        <input type="file" class="form-control" id="answerFile" name="answer_file">
+                        <small class="text-muted">Загрузите файл с выполненным заданием</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="answerText" class="form-label">Текст ответа</label>
+                        <textarea class="form-control" id="answerText" name="answer_text" rows="3" placeholder="Дополнительный комментарий"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-send me-1"></i>Отправить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const answerModal = document.getElementById('answerModal');
+        if (answerModal) {
+            const bsModal = new bootstrap.Modal(answerModal);
+            document.querySelectorAll('.btn-answer').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const unitId = this.getAttribute('data-unit-id');
+                    document.getElementById('answerForm').action = '{% url "course:student_answer" 0 %}'.replace('0', unitId);
+                    document.getElementById('answerUnitTitle').textContent = '«' + this.getAttribute('data-unit-title') + '»';
+                    document.getElementById('answerForm').reset();
+                    bsModal.show();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-view-card {
+        border-radius: 12px;
+        background-color: rgba(200, 225, 255, 0.15);
+    }
+    .course-view-card .card-header {
+        border-radius: 12px 12px 0 0 !important;
+        background-color: rgba(180, 210, 250, 0.3) !important;
+    }
+    .topic-block {
+        background-color: rgba(220, 235, 255, 0.18);
+        border-color: rgba(180, 210, 250, 0.3) !important;
+    }
+    .unit-item {
+        background-color: rgba(235, 242, 255, 0.25);
+    }
+</style>
+{% endblock %}
