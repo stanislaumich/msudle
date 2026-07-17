@@ -8,7 +8,8 @@ from django.contrib.auth.models import Group
 from django.views.decorators.http import require_POST
 from collections import OrderedDict
 
-from .models import Course, CourseUserPermission, CourseGroupPermission, CourseSection, CourseTopic, LearningUnit, CourseGroupStudent, StudentAnswer
+from .models import Course, CourseUserPermission, CourseGroupPermission, CourseSection, CourseTopic, LearningUnit, CourseGroupStudent, StudentAnswer, CourseAnnouncement
+from students.models import Student
 
 
 def _get_user_permission(user, course):
@@ -306,9 +307,93 @@ def check_answer(request, answer_id):
         answer.checked = True
         answer.checked_at = now
 
+    # Сохраняем комментарий преподавателя
+    comment = request.POST.get('comment', '').strip()
+    if comment:
+        answer.comment = comment
+    else:
+        answer.comment = None
+
     answer.save()
 
     student_name = answer.student.login
+    messages.success(request, f'Оценка для «{student_name}» сохранена.')
+    return redirect('course:course_grades', course_id=course.id)
+
+
+@login_required
+@require_POST
+def check_answer_no_submission(request, course_id, student_id, unit_id):
+    """Выставление оценки за задание, на которое студент не дал ответа.
+    Создаёт запись StudentAnswer с датами ответа и проверки = сейчас."""
+    course = get_object_or_404(Course, id=course_id)
+    student = get_object_or_404(Student, id=student_id)
+    unit = get_object_or_404(LearningUnit, id=unit_id, content_type='control')
+
+    # Проверяем права
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав на проверку ответов.')
+        return redirect('dashboard')
+
+    from django.utils import timezone
+    now = timezone.now()
+
+    # Создаём или получаем ответ
+    answer, created = StudentAnswer.objects.get_or_create(
+        student=student,
+        learning_unit=unit,
+        defaults={
+            'checked': True,
+            'created_at': now,
+            'modified_at': now,
+            'checked_at': now,
+            'checked_modified_at': now,
+        },
+    )
+
+    # Если ответ уже существовал — обновляем даты
+    if not created:
+        answer.created_at = now
+        answer.modified_at = now
+        answer.checked = True
+        answer.checked_at = now
+        answer.checked_modified_at = now
+
+    # Выставляем оценку
+    grading_type = unit.grading_type or 'score_100'
+    if grading_type == 'pass_fail':
+        passed_raw = request.POST.get('passed', '')
+        if passed_raw == 'true':
+            answer.passed = True
+            answer.score = 1
+        elif passed_raw == 'false':
+            answer.passed = False
+            answer.score = 0
+        else:
+            messages.error(request, 'Укажите результат зачёта.')
+            return redirect('course:course_grades', course_id=course.id)
+    else:
+        try:
+            score = int(request.POST.get('score', ''))
+            max_score = unit.max_score or 100
+            if score < 0 or score > max_score:
+                messages.error(request, f'Балл должен быть от 0 до {max_score}.')
+                return redirect('course:course_grades', course_id=course.id)
+        except (ValueError, TypeError):
+            messages.error(request, 'Введите числовой балл.')
+            return redirect('course:course_grades', course_id=course.id)
+        answer.score = score
+        answer.passed = None
+
+    # Комментарий
+    comment = request.POST.get('comment', '').strip()
+    answer.comment = comment if comment else None
+
+    answer.save()
+
+    student_name = student.login
     messages.success(request, f'Оценка для «{student_name}» сохранена.')
     return redirect('course:course_grades', course_id=course.id)
 
@@ -366,10 +451,13 @@ def course_grades(request, course_id):
                     'unit': unit,
                     'answer': answer,
                 })
+            units_count = len(all_control_units)
+            student_avg_score = round(student_total_score / units_count, 1) if units_count > 0 else 0
             student_rows.append({
                 'student': student,
                 'cells': cells,
                 'total_score': student_total_score,
+                'avg_score': student_avg_score,
             })
             group_total_scores.append(student_total_score)
 
@@ -377,12 +465,19 @@ def course_grades(request, course_id):
         group_sum_score = sum(group_total_scores)
         group_avg_score = round(group_sum_score / len(group_total_scores), 1) if group_total_scores else 0
 
+        # Считаем количество непроверенных ответов в группе
+        unchecked_count = 0
+        for ans in answers_qs:
+            if not ans.checked:
+                unchecked_count += 1
+
         groups_data.append({
             'group': group,
             'student_rows': student_rows,
             'control_units': all_control_units,
             'group_sum_score': group_sum_score,
             'group_avg_score': group_avg_score,
+            'unchecked_count': unchecked_count,
         })
 
     context = {
@@ -437,17 +532,42 @@ def student_grades(request, course_id):
             'answer': answer,
         })
 
+    units_count = len(all_control_units)
+    student_avg = round(total_score / units_count, 1) if units_count > 0 else 0
     student_row = {
         'student': user,
         'cells': cells,
         'total_score': total_score,
+        'avg_score': student_avg,
     }
+
+    # Собираем преподавателей с правами редактирования
+    teachers_list = []
+    perms = CourseUserPermission.objects.filter(
+        course=course,
+        permission__in=('edit', 'create_delete', 'full_access'),
+    ).select_related('user')
+    teacher_ids = set()
+    for p in perms:
+        teacher_ids.add(p.user)
+    group_perms = CourseGroupPermission.objects.filter(
+        course=course,
+        permission__in=('edit', 'create_delete', 'full_access'),
+    ).select_related('group')
+    for gp in group_perms:
+        for u in gp.group.user_set.all():
+            teacher_ids.add(u)
+    for t in teacher_ids:
+        name = t.get_full_name() or t.get_username()
+        teachers_list.append({'id': t.id, 'name': name})
+    teachers_list.sort(key=lambda x: x['name'])
 
     context = {
         'course': course,
         'all_control_units': all_control_units,
         'student_row': student_row,
         'is_student': True,
+        'teachers': teachers_list,
     }
     return render(request, 'course/student_grades.html', context)
 
@@ -503,6 +623,11 @@ def student_answer(request, unit_id):
         msg = 'Ответ отправлен.' if created else 'Ответ обновлён.'
         messages.success(request, msg)
 
+        next_url = request.POST.get('next', '')
+        if next_url:
+            return redirect(next_url)
+        return redirect('course:course_view', course_id=course.id)
+
     return redirect('course:course_view', course_id=course.id)
 
 
@@ -557,11 +682,24 @@ def course_view(request, course_id):
         )
         answer_map = {a.learning_unit_id: a for a in answers}
 
+    # ID объявлений, скрытых текущим пользователем (для персонального статуса)
+    from .models import AnnouncementDismiss
+    from students.models import Student
+    if isinstance(user, Student):
+        dismissed_ids = set(
+            AnnouncementDismiss.objects.filter(student=user).values_list('announcement_id', flat=True)
+        )
+    else:
+        dismissed_ids = set(
+            AnnouncementDismiss.objects.filter(user=user).values_list('announcement_id', flat=True)
+        )
+
     context = {
         'course': course,
         'sections': sections,
         'is_student': is_student,
         'answer_map': answer_map,
+        'dismissed_announcement_ids': dismissed_ids,
     }
     return render(request, 'course/view.html', context)
 
@@ -1027,6 +1165,104 @@ def section_toggle_visibility(request, section_id):
     state = 'видим' if section.visible else 'скрыт'
     messages.success(request, f'Раздел «{section.name}» теперь {state} для студентов.')
     return redirect('course:course_edit', course_id=course.id)
+
+
+@login_required
+@require_POST
+def announcement_create(request, course_id):
+    """Создание объявления по курсу."""
+    course = get_object_or_404(Course, id=course_id)
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав на создание объявлений.')
+        return redirect('dashboard')
+
+    text = request.POST.get('text', '').strip()
+    if not text:
+        messages.error(request, 'Введите текст объявления.')
+        return redirect('course:course_grades', course_id=course.id)
+
+    CourseAnnouncement.objects.create(
+        course=course,
+        author=request.user,
+        text=text,
+    )
+    messages.success(request, 'Объявление опубликовано.')
+    next_url = request.POST.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def announcement_hide(request, announcement_id):
+    """Персональное скрытие объявления (преподаватель или студент)."""
+    announcement = get_object_or_404(CourseAnnouncement, id=announcement_id)
+    course = announcement.course
+
+    # Проверяем доступ (для преподавателя — права; для студента — подписка)
+    user = request.user
+    if hasattr(user, 'fio'):
+        if not CourseGroupStudent.objects.filter(course=course, group_id=user.group_id).exists():
+            messages.error(request, 'Вы не подписаны на этот курс.')
+            return redirect('dashboard')
+    else:
+        user_perm = _get_user_permission(user, course)
+        allowed_perms = {'edit', 'create_delete', 'full_access'}
+        if user_perm not in allowed_perms and not user.is_staff:
+            messages.error(request, 'У вас нет прав.')
+            return redirect('dashboard')
+
+    # Создаём персональную запись скрытия
+    from .models import AnnouncementDismiss
+    from students.models import Student
+    if isinstance(user, Student):
+        AnnouncementDismiss.objects.get_or_create(
+            announcement=announcement,
+            student=user,
+        )
+    else:
+        AnnouncementDismiss.objects.get_or_create(
+            announcement=announcement,
+            user=user,
+        )
+    messages.success(request, 'Объявление скрыто.')
+    next_url = request.POST.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    return redirect('dashboard')
+
+
+@login_required
+@require_POST
+def announcement_dismiss(request, announcement_id):
+    """Синоним announcement_hide (для совместимости URL)."""
+    return announcement_hide(request, announcement_id)
+
+
+@login_required
+@require_POST
+def announcement_restore(request, announcement_id):
+    """Отмена скрытия объявления — удаляет персональный dismiss."""
+    announcement = get_object_or_404(CourseAnnouncement, id=announcement_id)
+    user = request.user
+
+    from .models import AnnouncementDismiss
+    from students.models import Student
+
+    if isinstance(user, Student):
+        AnnouncementDismiss.objects.filter(announcement=announcement, student=user).delete()
+    else:
+        AnnouncementDismiss.objects.filter(announcement=announcement, user=user).delete()
+
+    messages.success(request, 'Объявление снова отображается.')
+    next_url = request.POST.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    return redirect('dashboard')
 
 
 @login_required

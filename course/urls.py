@@ -26,4 +26,9 @@ urlpatterns = [
     path('<int:course_id>/grades/', views.course_grades, name='course_grades'),
     path('<int:course_id>/student-grades/', views.student_grades, name='student_grades'),
     path('answer/<int:answer_id>/check/', views.check_answer, name='check_answer'),
+    path('<int:course_id>/announcement/create/', views.announcement_create, name='announcement_create'),
+    path('announcement/<int:announcement_id>/hide/', views.announcement_hide, name='announcement_hide'),
+    path('announcement/<int:announcement_id>/dismiss/', views.announcement_dismiss, name='announcement_dismiss'),
+    path('announcement/<int:announcement_id>/restore/', views.announcement_restore, name='announcement_restore'),
+    path('<int:course_id>/student/<int:student_id>/unit/<int:unit_id>/check-no-submission/', views.check_answer_no_submission, name='check_answer_no_submission'),
 ]

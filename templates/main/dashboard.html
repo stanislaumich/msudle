@@ -16,6 +16,38 @@
         {% endif %}
     </div>
 
+    {# Активные объявления #}
+    {% if announcements %}
+        {% for ann in announcements %}
+        <div class="alert alert-info mb-3 position-relative" role="alert">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong><i class="bi bi-megaphone me-1"></i>{{ ann.course.full_name }}</strong>
+                    <small class="text-muted ms-2">{{ ann.created_at|date:"d.m.Y H:i" }} — {{ ann.author.get_full_name|default:ann.author.get_username }}</small>
+                    <div class="mt-1" style="white-space: pre-wrap;">{{ ann.text }}</div>
+                </div>
+                {% if is_student %}
+                <form method="post" action="{% url 'course:announcement_dismiss' ann.id %}" class="ms-3 flex-shrink-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Скрыть объявление">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'course:announcement_hide' ann.id %}" class="ms-3 flex-shrink-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Скрыть объявление">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+
     {% if course_data %}
     <div class="row g-4">
         {% for course in course_data %}
@@ -31,14 +63,24 @@
                         <span>{{ course.department }}</span>
                     </div>
 
-                    <!-- Уровень доступа (просто текст) -->
-                    <div class="mt-auto">
-                        <p class="text-muted small mb-3">
-                            <i class="bi bi-shield-lock me-1"></i>
-                            Уровень доступа: <strong>{{ course.permission }}</strong>
-                        </p>
+                     <!-- Уровень доступа (просто текст) -->
+                     <div class="mt-auto">
+                         <p class="text-muted small mb-3">
+                             <i class="bi bi-shield-lock me-1"></i>
+                             Уровень доступа: <strong>{{ course.permission }}</strong>
+                         </p>
 
-                        <!-- Кнопки -->
+                         {# Бейдж непроверенных ответов (только для преподавателей) #}
+                         {% if not is_student and course.unchecked_count|default:0 > 0 %}
+                         <div class="mb-3">
+                             <span class="badge bg-warning text-dark">
+                                 <i class="bi bi-exclamation-triangle me-1"></i>
+                                 Не проверено: {{ course.unchecked_count }}
+                             </span>
+                         </div>
+                         {% endif %}
+
+                         <!-- Кнопки -->
                         {% if is_student %}
                         <div class="d-flex gap-2">
                             <a href="{% url 'course:course_view' course.id %}" class="btn btn-primary btn-sm flex-fill">
@@ -57,15 +99,50 @@
                                 <i class="bi bi-pencil me-1"></i>Редактирование
                             </a>
                         </div>
-                        <a href="{% url 'course:course_grades' course.id %}" class="btn btn-warning btn-sm w-100 mt-2">
-                            <i class="bi bi-bar-chart me-1"></i>Успеваемость
-                        </a>
+                        <div class="d-flex gap-2 mt-2">
+                            <a href="{% url 'course:course_grades' course.id %}" class="btn btn-warning btn-sm flex-fill">
+                                <i class="bi bi-bar-chart me-1"></i>Успеваемость
+                            </a>
+                            <button type="button" class="btn btn-success btn-sm flex-fill btn-announce"
+                                    data-course-id="{{ course.id }}" data-course-name="{{ course.full_name|escapejs }}">
+                                <i class="bi bi-megaphone me-1"></i>Объявление
+                            </button>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    {# Модалка объявления #}
+    <div class="modal fade" id="announceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-megaphone text-success me-2"></i>Объявление</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" id="announceForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <div class="modal-body">
+                        <p class="text-muted mb-2">Курс: <strong id="announceCourseName"></strong></p>
+                        <div class="mb-3">
+                            <label for="announceText" class="form-label">Текст объявления</label>
+                            <textarea class="form-control" id="announceText" name="text" rows="5" placeholder="Введите текст объявления..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-megaphone me-1"></i>Опубликовать
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
     {% else %}
     <!-- Нет доступных курсов -->
@@ -81,6 +158,29 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const announceModal = document.getElementById('announceModal');
+        if (announceModal) {
+            const bsModal = new bootstrap.Modal(announceModal);
+            const announceForm = document.getElementById('announceForm');
+
+            document.querySelectorAll('.btn-announce').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const courseId = this.getAttribute('data-course-id');
+                    const courseName = this.getAttribute('data-course-name');
+                    document.getElementById('announceCourseName').textContent = courseName;
+                    announceForm.action = '{% url "course:announcement_create" 0 %}'.replace('0', courseId);
+                    document.getElementById('announceText').value = '';
+                    bsModal.show();
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}
 
 {% block extra_css %}

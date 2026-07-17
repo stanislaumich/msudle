@@ -4,7 +4,7 @@
 {% block title %}Успеваемость — {{ course.short_name }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold mb-1">
@@ -12,20 +12,59 @@
             </h2>
             <p class="text-muted mb-0">{{ course.full_name }}</p>
         </div>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#announceModal">
+                <i class="bi bi-megaphone me-1"></i>Объявление
+            </button>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+            </a>
+        </div>
     </div>
 
+    {# Активные объявления #}
+    {% for ann in course.announcements.all %}
+    {% if ann.is_active %}
+    <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <strong><i class="bi bi-megaphone me-1"></i>Объявление</strong>
+                <small class="text-muted ms-2">{{ ann.created_at|date:"d.m.Y H:i" }} — {{ ann.author.get_full_name|default:ann.author.get_username }}</small>
+                <div class="mt-1" style="white-space: pre-wrap;">{{ ann.text }}</div>
+            </div>
+            <form method="post" action="{% url 'course:announcement_hide' ann.id %}" class="ms-3">
+                {% csrf_token %}
+                <button type="submit" class="btn-close" title="Скрыть объявление"></button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {# Основной контент: таблицы слева + дашборд чата справа #}
+    <div class="row g-3">
+        {# Левая колонка — таблицы успеваемости #}
+        <div class="col" id="gradesColumn">
     {% if groups_data %}
         {% for gd in groups_data %}
         <div class="card shadow-sm border-0 mb-5" style="border-radius: 12px; background-color: rgba(200, 225, 255, 0.10);">
             <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.3) !important; border-radius: 12px 12px 0 0 !important;">
-                <h5 class="fw-bold mb-0">
-                    <i class="bi bi-people me-2"></i>
-                    Группа: {{ gd.group.group_number }}{% if gd.group.subgroup_number %}/{{ gd.group.subgroup_number }}{% endif %}
-                </h5>
+                <a class="grade-group-toggle text-decoration-none text-reset d-flex justify-content-between align-items-center"
+                   data-bs-toggle="collapse" href="#groupBody{{ forloop.counter }}" role="button"
+                   aria-expanded="false" title="Развернуть/свернуть группу">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-people me-2"></i>
+                        Группа: {{ gd.group.group_number }}{% if gd.group.subgroup_number %}/{{ gd.group.subgroup_number }}{% endif %}
+                        {% if gd.unchecked_count > 0 %}
+                        <span class="badge bg-warning text-dark ms-2">{{ gd.unchecked_count }} непроверенных</span>
+                        {% else %}
+                        <span class="badge bg-success ms-2">непроверенных нет</span>
+                        {% endif %}
+                    </h5>
+                    <i class="bi bi-chevron-down collapse-icon ms-2"></i>
+                </a>
             </div>
+            <div class="collapse" id="groupBody{{ forloop.counter }}">
             <div class="card-body p-0" style="overflow-x: auto;">
                 {% if gd.student_rows %}
                 <table class="table table-bordered table-sm mb-0" style="min-width: 800px;">
@@ -33,10 +72,10 @@
                         <tr>
                             <th class="text-nowrap p-2" style="position: sticky; left: 0; background: inherit; z-index: 1;">Студент</th>
                             {% for unit in gd.control_units %}
-                            <th class="text-center p-2" style="min-width: 60px;">{{ unit.title|slice:":20" }}{% if unit.title|length > 20 %}…{% endif %}</th>
+                            <th class="text-center p-2 two-line-header">{{ unit.title }}</th>
                             {% endfor %}
                             <th class="text-center p-2" style="min-width: 80px; background-color: rgba(255, 235, 150, 0.3);">
-                                Σ баллов<br><small class="text-muted">(средний)</small>
+                                Σ баллов<br><small class="text-muted">Сумма / Средний</small>
                             </th>
                         </tr>
                     </thead>
@@ -44,12 +83,49 @@
                         {% for row in gd.student_rows %}
                         <tr>
                             <td class="text-nowrap p-2" style="position: sticky; left: 0; background: rgba(235, 242, 255, 0.90); z-index: 1;">
+                                <a href="#" class="chat-open-btn text-decoration-none me-1"
+                                   data-student-id="{{ row.student.id }}"
+                                   data-student-fio="{{ row.student.fio|escapejs }}"
+                                   data-course-id="{{ course.id }}"
+                                   title="Переписка со студентом">
+                                    <i class="bi bi-envelope-fill text-primary fs-5"></i>
+                                </a>
                                 <small>{{ row.student.fio }}</small>
                             </td>
                             {% for cell in row.cells %}
                             <td class="text-center p-1">
                                 {% if cell.answer %}
                                     {% if cell.answer.checked %}
+                                        {% if not cell.answer.answer_text and not cell.answer.answer_file %}
+                                        {# Проверено преподавателем без ответа студента — зелёный кружок с жёлтым внутри #}
+                                        <a href="#" class="btn-grade-icon text-decoration-none"
+                                           data-answer-id="{{ cell.answer.id }}"
+                                           data-student="{{ row.student.fio|escapejs }}"
+                                           data-unit="{{ cell.unit.title|escapejs }}"
+                                           data-status="checked"
+                                           data-score="{{ cell.answer.score|default:'' }}"
+                                           data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                           data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                           data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                           data-answer-text=""
+                                           data-answer-file=""
+                                           data-answer-file-name=""
+                                           data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                           data-modified-at=""
+                                           data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                           data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                           data-comment="{{ cell.answer.comment|default:''|escapejs }}"
+                                           data-course-id="{{ course.id }}">
+                                            <i class="bi bi-x-circle-fill text-success fs-4"></i>
+                                            {% if cell.answer.score is not None %}
+                                            <small class="d-block">{{ cell.answer.score }}</small>
+                                            {% elif cell.answer.passed is True %}
+                                            <small class="d-block">+</small>
+                                            {% elif cell.answer.passed is False %}
+                                            <small class="d-block">&minus;</small>
+                                            {% endif %}
+                                        </a>
+                                        {% else %}
                                         {# Проверено — зелёная галочка #}
                                         <a href="#" class="btn-grade-icon text-decoration-none"
                                            data-answer-id="{{ cell.answer.id }}"
@@ -67,6 +143,7 @@
                                            data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
                                            data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
                                            data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                           data-comment="{{ cell.answer.comment|default:''|escapejs }}"
                                            data-course-id="{{ course.id }}">
                                             <i class="bi bi-check-circle-fill text-success fs-4"></i>
                                             {% if cell.answer.score is not None %}
@@ -77,6 +154,7 @@
                                             <small class="d-block">&minus;</small>
                                             {% endif %}
                                         </a>
+                                        {% endif %}
                                     {% else %}
                                         {# Не проверено — жёлтый вопрос + 0 #}
                                         <a href="#" class="btn-grade-icon text-decoration-none"
@@ -98,18 +176,24 @@
                                     {% endif %}
                                 {% else %}
                                     {# Нет ответа — красный крестик + 0 #}
-                                    <span class="btn-grade-icon text-decoration-none"
+                                    <a href="#" class="btn-grade-icon text-decoration-none"
+                                       data-answer-id=""
+                                       data-student-id="{{ row.student.id }}"
                                        data-student="{{ row.student.fio|escapejs }}"
+                                       data-unit-id="{{ cell.unit.id }}"
                                        data-unit="{{ cell.unit.title|escapejs }}"
-                                       data-status="no_answer">
+                                       data-status="no_answer"
+                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                       data-course-id="{{ course.id }}">
                                         <i class="bi bi-x-circle-fill text-danger fs-4"></i>
                                         <small class="d-block">0</small>
-                                    </span>
+                                    </a>
                                 {% endif %}
                             </td>
                             {% endfor %}
                             <td class="text-center p-1 fw-bold" style="background-color: rgba(255, 235, 150, 0.15);">
-                                {{ row.total_score }}
+                                {{ row.total_score }}<br><small class="text-muted">{{ row.avg_score }}</small>
                             </td>
                         </tr>
                         {% endfor %}
@@ -131,6 +215,7 @@
                 <p class="text-muted p-3 mb-0">В этой группе нет студентов.</p>
                 {% endif %}
             </div>
+            </div>
         </div>
         {% endfor %}
     {% else %}
@@ -142,6 +227,67 @@
         </a>
     </div>
     {% endif %}
+        </div>{# конец левой колонки #}
+
+        {# Правая колонка — дашборд чата #}
+        <div class="col-auto" id="chatDashboard" style="display:none; width: 380px; min-width: 380px;">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                     style="background-color: rgba(180, 210, 250, 0.3) !important; border-radius: 12px 12px 0 0 !important;">
+                    <div>
+                        <i class="bi bi-chat-dots-fill text-primary me-2"></i>
+                        <strong id="chatStudentFio">Выберите студента</strong>
+                    </div>
+                    <button type="button" class="btn-close btn-sm" id="chatDashboardClose" title="Закрыть чат"></button>
+                </div>
+                <div class="card-body p-0 d-flex flex-column" style="height: 500px;">
+                    {# История сообщений #}
+                    <div class="flex-grow-1 overflow-auto p-3" id="chatMessagesHistory"
+                         style="background-color: rgba(240, 245, 255, 0.5);">
+                        <p class="text-muted text-center small mt-3">Выберите студента для начала переписки</p>
+                    </div>
+                    {# Поле ввода #}
+                    <div class="p-2 border-top" style="background-color: rgba(235, 242, 255, 0.6);">
+                        <form id="chatSendForm" class="d-flex gap-2" style="display:none !important;">
+                            {% csrf_token %}
+                            <input type="text" id="chatMessageInput" class="form-control form-control-sm"
+                                   placeholder="Введите сообщение..." autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-send-fill"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>{# конец row #}
+</div>
+
+{# ============ МОДАЛЬНОЕ ОКНО ОБЪЯВЛЕНИЯ ============ #}
+<div class="modal fade" id="announceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-megaphone text-success me-2"></i>Объявление</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'course:announcement_create' course.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="announceText" class="form-label">Текст объявления</label>
+                        <textarea class="form-control" id="announceText" name="text" rows="5" placeholder="Введите текст объявления..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-megaphone me-1"></i>Опубликовать
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 {# ============ МОДАЛЬНОЕ ОКНО ОЦЕНИВАНИЯ ============ #}
@@ -245,6 +391,12 @@
                                min="0" value="0" style="max-width:150px;">
                     </div>
 
+                    <!-- Комментарий -->
+                    <div class="mb-3">
+                        <label for="gradeCommentInput" class="form-label">Комментарий</label>
+                        <textarea class="form-control" id="gradeCommentInput" name="comment" rows="3" placeholder="Комментарий к оценке"></textarea>
+                    </div>
+
                     <!-- Зачёт / не зачёт -->
                     <div class="mb-3" id="gradePassFailBlock" style="display:none;">
                         <label class="form-label">Результат</label>
@@ -279,6 +431,7 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // ============ Модальное окно оценки ============
         const gradeModal = document.getElementById('gradeModal');
         if (gradeModal) {
             const bsModal = new bootstrap.Modal(gradeModal);
@@ -306,17 +459,31 @@
                     const checkedAt = this.getAttribute('data-checked-at') || '';
                     const checkedModifiedAt = this.getAttribute('data-checked-modified-at') || '';
 
-                    // Заполняем основную информацию
                     document.getElementById('gradeStudentName').textContent = student;
                     document.getElementById('gradeUnitTitle').textContent = unit;
 
-                    // Устанавливаем action формы
-                    if (answerId) {
+                    if (status === 'no_answer') {
+                        // Нет ответа — используем специальный URL
+                        const studentId = this.getAttribute('data-student-id');
+                        const unitId = this.getAttribute('data-unit-id');
+                        gradeForm.action = '{% url "course:check_answer_no_submission" 0 0 0 %}'
+                            .replace('/0/student/', '/' + courseId + '/student/')
+                            .replace('/student/0/unit/', '/student/' + studentId + '/unit/')
+                            .replace('/unit/0/', '/unit/' + unitId + '/');
+                    } else if (answerId) {
                         gradeForm.action = '{% url "course:check_answer" 0 %}'.replace('0', answerId);
                     }
 
-                    // Даты ответа
-                    document.getElementById('gradeCreatedAt').textContent = createdAt || '—';
+                    // Для статуса no_answer — скрываем даты ответа
+                    if (status === 'no_answer') {
+                        document.getElementById('gradeCreatedAt').textContent = '—';
+                        document.getElementById('gradeModifiedBlock').style.display = 'none';
+                        document.getElementById('gradeCheckDatesBlock').style.display = 'none';
+                        document.getElementById('gradeAnswerContent').style.display = 'none';
+                        document.getElementById('gradeCurrentScoreBlock').style.display = 'none';
+                    } else {
+                        document.getElementById('gradeCreatedAt').textContent = createdAt || '—';
+                    }
                     if (modifiedAt) {
                         document.getElementById('gradeModifiedAt').textContent = modifiedAt;
                         document.getElementById('gradeModifiedBlock').style.display = '';
@@ -324,7 +491,6 @@
                         document.getElementById('gradeModifiedBlock').style.display = 'none';
                     }
 
-                    // Даты проверки
                     if (status === 'checked') {
                         document.getElementById('gradeCheckDatesBlock').style.display = '';
                         document.getElementById('gradeCheckedAt').textContent = checkedAt || '—';
@@ -338,7 +504,6 @@
                         document.getElementById('gradeCheckDatesBlock').style.display = 'none';
                     }
 
-                    // Содержимое ответа
                     var hasContent = false;
                     if (answerText) {
                         document.getElementById('gradeAnswerTextBlock').style.display = '';
@@ -357,7 +522,9 @@
                     }
                     document.getElementById('gradeAnswerContent').style.display = hasContent ? '' : 'none';
 
-                    // Текущая оценка
+                    const answerComment = this.getAttribute('data-comment') || '';
+                    document.getElementById('gradeCommentInput').value = answerComment;
+
                     if (status === 'checked') {
                         document.getElementById('gradeCurrentScoreBlock').style.display = '';
                         var currentDisplay = '';
@@ -373,11 +540,9 @@
                         document.getElementById('gradeCurrentScoreBlock').style.display = 'none';
                     }
 
-                    // Форма оценки в зависимости от типа
                     if (gradingType === 'pass_fail') {
                         document.getElementById('gradeScoreBlock').style.display = 'none';
                         document.getElementById('gradePassFailBlock').style.display = '';
-                        // Сбрасываем радиокнопки
                         document.getElementById('gradePassedTrue').checked = false;
                         document.getElementById('gradePassedFalse').checked = false;
                     } else {
@@ -393,6 +558,172 @@
                 });
             });
         }
+
+        // ============ Дашборд чата ============
+        const chatDashboard = document.getElementById('chatDashboard');
+        const chatStudentFio = document.getElementById('chatStudentFio');
+        const chatMessagesHistory = document.getElementById('chatMessagesHistory');
+        const chatSendForm = document.getElementById('chatSendForm');
+        const chatMessageInput = document.getElementById('chatMessageInput');
+        const chatDashboardClose = document.getElementById('chatDashboardClose');
+        const gradesColumn = document.getElementById('gradesColumn');
+
+        let currentChatCourseId = null;
+        let currentChatStudentId = null;
+        let currentChatStudentFio = '';
+        let chatPollTimer = null;
+
+        // Получить CSRF токен
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Рендер одного сообщения
+        function renderMessage(msg) {
+            const div = document.createElement('div');
+            div.className = 'mb-2';
+            const isStudent = msg.is_from_student;
+            const align = isStudent ? 'text-start' : 'text-end';
+            const bgColor = isStudent
+                ? 'background-color: rgba(220, 235, 255, 0.8); border-radius: 12px 12px 12px 4px;'
+                : 'background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;';
+
+            div.innerHTML = '<div class="' + align + '">' +
+                '<small class="text-muted d-block">' + htmlEscape(msg.sender_name) + ' · ' + htmlEscape(msg.created_at) + '</small>' +
+                '<span class="d-inline-block px-3 py-1" style="' + bgColor + ' max-width: 85%;">' + htmlEscape(msg.text) + '</span>' +
+                '</div>';
+            return div;
+        }
+
+        function htmlEscape(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        // Загрузка истории чата
+        function loadChatHistory(courseId, studentId, fio) {
+            currentChatCourseId = courseId;
+            currentChatStudentId = studentId;
+            currentChatStudentFio = fio;
+
+            chatStudentFio.textContent = fio;
+            chatMessagesHistory.innerHTML = '<p class="text-muted text-center small">Загрузка...</p>';
+            chatSendForm.style.display = 'flex';
+            chatDashboard.style.display = '';
+            gradesColumn.classList.remove('col');
+            gradesColumn.classList.add('col-lg');
+
+            if (chatPollTimer) clearInterval(chatPollTimer);
+
+            fetchChatMessages();
+
+            // Автообновление каждые 5 секунд
+            chatPollTimer = setInterval(function() {
+                if (currentChatCourseId && currentChatStudentId) {
+                    fetchChatMessages(false);
+                }
+            }, 5000);
+        }
+
+        function fetchChatMessages(scrollToBottom) {
+            if (scrollToBottom === undefined) scrollToBottom = true;
+
+            const url = '/chat/api/' + currentChatCourseId + '/' + currentChatStudentId + '/';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Ошибка загрузки');
+                    return response.json();
+                })
+                .then(function(data) {
+                    chatMessagesHistory.innerHTML = '';
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(msg) {
+                            chatMessagesHistory.appendChild(renderMessage(msg));
+                        });
+                    } else {
+                        chatMessagesHistory.innerHTML = '<p class="text-muted text-center small mt-3">Нет сообщений. Начните переписку.</p>';
+                    }
+                    if (scrollToBottom) {
+                        chatMessagesHistory.scrollTop = chatMessagesHistory.scrollHeight;
+                    }
+                })
+                .catch(function(err) {
+                    chatMessagesHistory.innerHTML = '<p class="text-danger text-center small">Ошибка загрузки сообщений</p>';
+                });
+        }
+
+        // Отправка сообщения
+        chatSendForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const text = chatMessageInput.value.trim();
+            if (!text) return;
+            if (!currentChatCourseId || !currentChatStudentId) return;
+
+            const url = '/chat/api/' + currentChatCourseId + '/' + currentChatStudentId + '/';
+            const csrfToken = getCookie('csrftoken');
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ text: text }),
+                credentials: 'same-origin',
+            })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Ошибка отправки');
+                    return response.json();
+                })
+                .then(function(msg) {
+                    chatMessagesHistory.appendChild(renderMessage(msg));
+                    chatMessagesHistory.scrollTop = chatMessagesHistory.scrollHeight;
+                    chatMessageInput.value = '';
+                    chatMessageInput.focus();
+                })
+                .catch(function(err) {
+                    alert('Не удалось отправить сообщение');
+                });
+        });
+
+        // Закрытие дашборда
+        chatDashboardClose.addEventListener('click', function() {
+            chatDashboard.style.display = 'none';
+            chatSendForm.style.display = 'none';
+            gradesColumn.classList.remove('col-lg');
+            gradesColumn.classList.add('col');
+            currentChatCourseId = null;
+            currentChatStudentId = null;
+            if (chatPollTimer) {
+                clearInterval(chatPollTimer);
+                chatPollTimer = null;
+            }
+        });
+
+        // Клик по иконке конвертика
+        document.querySelectorAll('.chat-open-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const studentId = this.getAttribute('data-student-id');
+                const studentFio = this.getAttribute('data-student-fio');
+                const courseId = this.getAttribute('data-course-id');
+                loadChatHistory(courseId, studentId, studentFio);
+            });
+        });
     });
 </script>
 {% endblock %}
@@ -401,5 +732,30 @@
 <style>
     .btn-grade-icon { display: inline-block; cursor: pointer; }
     .btn-grade-icon:hover { opacity: 0.7; }
+    .two-line-header {
+        min-width: 55px;
+        max-width: 70px;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        font-size: 0.8rem;
+        line-height: 1.2;
+        vertical-align: middle;
+    }
+    .chat-open-btn { cursor: pointer; }
+    .chat-open-btn:hover { opacity: 0.7; }
+    #chatDashboard {
+        position: sticky;
+        top: 1rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 2rem);
+    }
+    #chatMessagesHistory::-webkit-scrollbar {
+        width: 6px;
+    }
+    #chatMessagesHistory::-webkit-scrollbar-thumb {
+        background-color: rgba(0,0,0,0.2);
+        border-radius: 3px;
+    }
 </style>
 {% endblock %}

@@ -24,10 +24,71 @@
             </a>
         </div>
         {% else %}
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Назад к курсам
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#announceModal">
+                <i class="bi bi-megaphone me-1"></i>Объявление
+            </button>
+            <a href="{% url 'course:course_grades' course.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-bar-chart me-1"></i>Успеваемость
+            </a>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Назад к курсам
+            </a>
+        </div>
         {% endif %}
+    </div>
+
+    {# Объявления (история) #}
+    <div class="card shadow-sm border-0 mb-4 course-view-card">
+        <div class="card-header d-flex justify-content-between align-items-center py-3">
+            <a class="section-toggle text-decoration-none text-reset d-flex align-items-center flex-grow-1 cursor-pointer"
+               data-bs-toggle="collapse" href="#announceBody{{ course.id }}" role="button"
+               aria-expanded="false" title="Развернуть/свернуть">
+                <i class="bi bi-megaphone me-2"></i>
+                <span class="fw-bold">Объявления</span>
+                <small class="text-muted ms-2">({{ course.announcements.count }})</small>
+                <i class="bi bi-chevron-down collapse-icon ms-2"></i>
+            </a>
+        </div>
+        <div class="collapse" id="announceBody{{ course.id }}">
+            <div class="card-body p-3">
+                {% for ann in course.announcements.all %}
+                <div class="mb-3 p-3 rounded-3 {% if ann.id in dismissed_announcement_ids %}bg-body-secondary{% else %}bg-info-subtle{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>{{ ann.author.get_full_name|default:ann.author.get_username }}</strong>
+                            <small class="text-muted ms-2">{{ ann.created_at|date:"d.m.Y H:i" }}</small>
+                            {% if ann.id in dismissed_announcement_ids %}
+                            <span class="badge bg-secondary ms-2">скрыто вами</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if ann.id in dismissed_announcement_ids %}
+                            <form method="post" action="{% url 'course:announcement_restore' ann.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.path }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Показать снова">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'course:announcement_hide' ann.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.path }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Скрыть">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-1" style="white-space: pre-wrap;">{{ ann.text }}</div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">Нет объявлений.</p>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
     {# Разделы #}
@@ -162,6 +223,34 @@
         <h4 class="text-muted">В этом курсе пока нет разделов</h4>
     </div>
     {% endfor %}
+{# Модалка объявления #}
+<div class="modal fade" id="announceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-megaphone text-success me-2"></i>Объявление</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'course:announcement_create' course.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="announceText" class="form-label">Текст объявления</label>
+                        <textarea class="form-control" id="announceText" name="text" rows="5" placeholder="Введите текст объявления..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-megaphone me-1"></i>Опубликовать
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {# Модалка ответа студента #}
 <div class="modal fade" id="answerModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -172,6 +261,7 @@
             </div>
             <form method="post" id="answerForm" enctype="multipart/form-data">
                 {% csrf_token %}
+                <input type="hidden" name="next" value="" id="answerNext">
                 <div class="modal-body">
                     <p class="text-muted mb-3">Задание: <strong id="answerUnitTitle"></strong></p>
                     <div class="mb-3">
@@ -206,6 +296,7 @@
                 btn.addEventListener('click', function() {
                     const unitId = this.getAttribute('data-unit-id');
                     document.getElementById('answerForm').action = '{% url "course:student_answer" 0 %}'.replace('0', unitId);
+                    document.getElementById('answerNext').value = window.location.href;
                     document.getElementById('answerUnitTitle').textContent = '«' + this.getAttribute('data-unit-title') + '»';
                     document.getElementById('answerForm').reset();
                     bsModal.show();

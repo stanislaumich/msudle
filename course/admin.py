@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Course, CourseUserPermission, CourseGroupPermission, CourseGroupStudent, CourseSection, CourseTopic, LearningUnit
+from .models import Course, CourseUserPermission, CourseGroupPermission, CourseGroupStudent, CourseSection, CourseTopic, LearningUnit, CourseAnnouncement
 
 
 from django.contrib.auth.models import Group
@@ -152,3 +152,14 @@ class CourseGroupStudentAdmin(admin.ModelAdmin):
     list_filter = ('course',)
     search_fields = ('course__short_name', 'group__group_number')
     autocomplete_fields = ('group',)
+
+
+@admin.register(CourseAnnouncement)
+class CourseAnnouncementAdmin(admin.ModelAdmin):
+    list_display = ('course', 'author', 'text_preview', 'created_at')
+    list_filter = ('course',)
+    search_fields = ('text', 'course__short_name', 'author__username')
+
+    def text_preview(self, obj):
+        return obj.text[:80]
+    text_preview.short_description = 'Текст'

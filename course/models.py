@@ -231,7 +231,7 @@ class LearningUnit(models.Model):
 
     GRADING_TYPE_CHOICES = [
         ('pass_fail', 'Зачтено / не зачтено'),
-        ('score_100', 'Баллы (0–100)'),
+        ('score_100', 'Баллы'),
     ]
 
     topic = models.ForeignKey(
@@ -351,7 +351,7 @@ class StudentAnswer(models.Model):
     """Ответ студента на контрольную единицу."""
     GRADING_CHOICES = [
         ('pass_fail', 'Зачтено / не зачтено'),
-        ('score_100', 'Баллы (0–100)'),
+        ('score_100', 'Баллы'),
     ]
 
     student = models.ForeignKey(
@@ -396,6 +396,12 @@ class StudentAnswer(models.Model):
         verbose_name='Зачтено',
         help_text='Зачтено / не зачтено',
     )
+    comment = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Комментарий преподавателя',
+        help_text='Текстовый комментарий к оценке',
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Дата ответа',
@@ -422,3 +428,90 @@ class StudentAnswer(models.Model):
 
     def __str__(self):
         return f'{self.student.login} — {self.learning_unit.title}'
+
+
+class CourseAnnouncement(models.Model):
+    """Объявление по курсу — отображается студентам и преподавателям."""
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name='announcements',
+        verbose_name='Курс',
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор',
+    )
+    text = models.TextField(
+        verbose_name='Текст объявления',
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата публикации',
+    )
+
+    class Meta:
+        verbose_name = 'Объявление курса'
+        verbose_name_plural = 'Объявления курсов'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.course.short_name}: {self.text[:60]}'
+
+    def is_dismissed_by(self, user):
+        """Проверяет, скрыл ли пользователь (User или Student) это объявление."""
+        from students.models import Student
+        if isinstance(user, Student):
+            return self.dismissals.filter(student=user).exists()
+        return self.dismissals.filter(user=user).exists()
+
+
+class AnnouncementDismiss(models.Model):
+    """Персональное скрытие объявления (студент или преподаватель)."""
+    announcement = models.ForeignKey(
+        CourseAnnouncement,
+        on_delete=models.CASCADE,
+        related_name='dismissals',
+        verbose_name='Объявление',
+    )
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='dismissed_announcements',
+        verbose_name='Студент',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='dismissed_announcements',
+        verbose_name='Пользователь',
+    )
+    dismissed_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата скрытия',
+    )
+
+    class Meta:
+        verbose_name = 'Скрытие объявления'
+        verbose_name_plural = 'Скрытия объявлений'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['announcement', 'user'],
+                name='unique_dismiss_user',
+                condition=models.Q(user__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=['announcement', 'student'],
+                name='unique_dismiss_student',
+                condition=models.Q(student__isnull=False),
+            ),
+        ]
+
+    def __str__(self):
+        who = self.user.get_username() if self.user else (self.student.fio if self.student else '?')
+        return f'{who} скрыл "{self.announcement.text[:40]}"'

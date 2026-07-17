@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Чаты — Msudle{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="fw-bold mb-4">
+        <i class="bi bi-chat-dots me-2"></i>Чаты
+    </h2>
+
+    {% if rooms %}
+    <div class="row g-3">
+        {% for room in rooms %}
+        <div class="col-12">
+            <a href="{% url 'chat:room' room.id %}" class="text-decoration-none">
+                <div class="card shadow-sm border-0 {% if room.unread > 0 %}border-warning border-2{% endif %}" style="border-radius: 12px;">
+                    <div class="card-body d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <h6 class="fw-bold mb-1 text-reset">
+                                <i class="bi bi-book me-2"></i>{{ room.course.short_name }}
+                            </h6>
+                            <small class="text-muted">
+                                {% if is_student %}
+                                    Преподаватель курса
+                                {% else %}
+                                    {{ room.student.fio }}
+                                {% endif %}
+                                {% with last=room.last_message %}
+                                {% if last %}
+                                <br><span class="text-muted">{{ last.text|truncatechars:80 }}</span>
+                                {% endif %}
+                                {% endwith %}
+                            </small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            {% with last=room.last_message %}
+                            {% if last %}
+                            <small class="text-muted">{{ last.created_at|date:"d.m H:i" }}</small>
+                            {% endif %}
+                            {% endwith %}
+                            {% if room.unread > 0 %}
+                            <span class="badge bg-warning text-dark">{{ room.unread }}</span>
+                            {% endif %}
+                            <i class="bi bi-chevron-right text-muted"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-chat-dots display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">Нет активных чатов</h4>
+        <p class="text-muted">Чаты создаются автоматически при подписке на курс</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

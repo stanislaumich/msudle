@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Редактирование дисциплины{% else %}Добавление дисциплины{% endif %} — Msudle{% endblock %}
+
+{% block extra_js %}
+<script>
+    // При смене факультета — подгружаем кафедры через API
+    document.addEventListener('DOMContentLoaded', function() {
+        var facultySelect = document.getElementById('facultySelect');
+        var deptSelect = document.getElementById('deptSelect');
+        // Сохраняем опции кафедр (исключая дефолтную пустую)
+        var allDeptOptions = Array.from(deptSelect.options).filter(function(o) { return o.value !== ''; });
+
+        if (facultySelect && deptSelect) {
+            facultySelect.addEventListener('change', function() {
+                var facultyId = this.value;
+                deptSelect.innerHTML = '<option value="">Выберите кафедру...</option>';
+                if (facultyId) {
+                    allDeptOptions.forEach(function(opt) {
+                        if (opt.getAttribute('data-faculty') === facultyId) {
+                            deptSelect.appendChild(opt.cloneNode(true));
+                        }
+                    });
+                } else {
+                    allDeptOptions.forEach(function(opt) {
+                        deptSelect.appendChild(opt.cloneNode(true));
+                    });
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        {% if editing %}
+                        <i class="bi bi-pencil me-2"></i>Редактирование дисциплины
+                        {% else %}
+                        <i class="bi bi-plus-lg me-2"></i>Добавление дисциплины
+                        {% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="fullNameInput" class="form-label">Полное наименование <span class="text-danger">*</span></label>
+                            <input type="text" name="full_name" id="fullNameInput" class="form-control" required
+                                   value="{% if form_data.full_name %}{{ form_data.full_name }}{% elif subject %}{{ subject.full_name }}{% endif %}"
+                                   placeholder="Например: Математический анализ">
+                        </div>
+                        <div class="mb-3">
+                            <label for="shortNameInput" class="form-label">Краткое наименование <span class="text-danger">*</span></label>
+                            <input type="text" name="short_name" id="shortNameInput" class="form-control" required
+                                   value="{% if form_data.short_name %}{{ form_data.short_name }}{% elif subject %}{{ subject.short_name }}{% endif %}"
+                                   placeholder="Например: Матанализ">
+                        </div>
+                        <div class="mb-3">
+                            <label for="facultySelect" class="form-label">Факультет</label>
+                            <select name="faculty" id="facultySelect" class="form-select">
+                                <option value="">Все факультеты</option>
+                                {% for f in faculties %}
+                                <option value="{{ f.id }}"
+                                    {% if form_data.faculty and form_data.faculty|add:"0" == f.id %}selected
+                                    {% elif subject and subject.department.faculty_id == f.id %}selected
+                                    {% endif %}>
+                                    {{ f.full_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deptSelect" class="form-label">Кафедра <span class="text-danger">*</span></label>
+                            <select name="department" id="deptSelect" class="form-select" required>
+                                <option value="">Выберите кафедру...</option>
+                                {% for d in departments %}
+                                <option value="{{ d.id }}" data-faculty="{{ d.faculty_id }}"
+                                    {% if form_data.department and form_data.department|add:"0" == d.id %}selected
+                                    {% elif subject and subject.department_id == d.id %}selected
+                                    {% endif %}>
+                                    {{ d.full_name }} ({{ d.faculty.short_name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="identInput" class="form-label">Идентификатор</label>
+                            <input type="text" name="identifier" id="identInput" class="form-control"
+                                   value="{% if form_data.identifier %}{{ form_data.identifier }}{% elif subject %}{{ subject.identifier|default:'' }}{% endif %}"
+                                   placeholder="Необязательно">
+                            <div class="form-text">Для внутренних нужд, не отображается в интерфейсе.</div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                {% if editing %}
+                                <i class="bi bi-check-lg me-1"></i>Сохранить
+                                {% else %}
+                                <i class="bi bi-plus-lg me-1"></i>Добавить дисциплину
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'subject:list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -4,11 +4,326 @@
 {% block title %}Главная — Msudle{% endblock %}
 
 {% block content %}
-<div class="container py-5">
+<div class="container py-4">
+    <div class="mb-4">
+        <h2 class="fw-bold mb-1">
+            <i class="bi bi-mortarboard-fill me-2"></i>Главная
+        </h2>
+        <p class="text-muted mb-0">Объявления и полезная информация</p>
+    </div>
+
+    {# Непрочитанные сообщения от студентов #}
+    {% if unread_chats %}
+    <div class="mb-4">
+        <h4 class="fw-bold mb-3">
+            <i class="bi bi-envelope-exclamation text-warning me-2"></i>Непрочитанные сообщения
+        </h4>
+        <div class="row g-3">
+            {% for uc in unread_chats %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card border-warning shadow-sm h-100" style="border-radius: 12px;">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                         style="background-color: rgba(255, 235, 150, 0.3) !important; border-radius: 12px 12px 0 0 !important;">
+                        <div>
+                            <strong class="small">{{ uc.course.short_name }}</strong>
+                        </div>
+                        <span class="badge bg-warning text-dark">{{ uc.unread_count }}</span>
+                    </div>
+                    <div class="card-body p-2 d-flex flex-column">
+                        <small class="text-muted mb-2">
+                            <i class="bi bi-person me-1"></i>{{ uc.student.fio }}
+                        </small>
+                        <div style="max-height: 120px; overflow-y: auto;" class="mb-2">
+                        {% for msg in uc.messages|slice:":3" %}
+                        <div class="small border-bottom pb-1 mb-1">
+                            <span class="text-muted">{{ msg.created_at|date:"d.m H:i" }}</span>
+                            <div style="white-space: pre-wrap;">{{ msg.text|truncatechars:100 }}</div>
+                        </div>
+                        {% endfor %}
+                        {% if uc.messages|length > 3 %}
+                        <small class="text-muted">... и ещё {{ uc.messages|length|add:"-3" }} сообщ.</small>
+                        {% endif %}
+                        </div>
+                        <div class="mt-auto">
+                            <button type="button" class="btn btn-warning btn-sm w-100 teacher-chat-btn"
+                                    data-course-id="{{ uc.course_id }}"
+                                    data-student-id="{{ uc.student_id }}"
+                                    data-student-fio="{{ uc.student.fio|escapejs }}"
+                                    data-course-name="{{ uc.course.full_name|escapejs }}">
+                                <i class="bi bi-reply-fill me-1"></i>Ответить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <hr class="my-4">
+    {% endif %}
+
+    {# Курсы с непроверенными заданиями #}
+    {% if unchecked_courses %}
+    <div class="mb-4">
+        <h4 class="fw-bold mb-3">
+            <i class="bi bi-exclamation-triangle text-warning me-2"></i>Непроверенные задания
+        </h4>
+        <div class="row g-3">
+            {% for uc in unchecked_courses %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card border-warning shadow-sm h-100">
+                    <div class="card-body d-flex flex-column p-3">
+                        <h6 class="card-title fw-bold mb-2">{{ uc.full_name }}</h6>
+                        <div class="d-flex align-items-center text-muted small mb-3">
+                            <i class="bi bi-building me-2"></i>
+                            <span>{{ uc.department }}</span>
+                        </div>
+                        <div class="mt-auto d-flex justify-content-between align-items-center">
+                            <span class="badge bg-warning text-dark fs-6">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                Не проверено: {{ uc.unchecked_count }}
+                            </span>
+                            <a href="{% url 'course:course_grades' uc.id %}" class="btn btn-warning btn-sm">
+                                <i class="bi bi-check2-square me-1"></i>Проверить
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <hr class="my-4">
+    {% endif %}
+
+    {# Активные объявления #}
+    {% if announcements %}
+        {% for ann in announcements %}
+        <div class="alert alert-info mb-3 position-relative" role="alert">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <strong><i class="bi bi-megaphone me-1"></i>{{ ann.course.full_name }}</strong>
+                    <small class="text-muted ms-2">{{ ann.created_at|date:"d.m.Y H:i" }} — {{ ann.author.get_full_name|default:ann.author.get_username }}</small>
+                    <div class="mt-1" style="white-space: pre-wrap;">{{ ann.text }}</div>
+                </div>
+                <form method="post" action="{% url 'course:announcement_hide' ann.id %}" class="ms-3 flex-shrink-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Скрыть объявление">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {# Если нет ни объявлений, ни непроверенных заданий, ни сообщений #}
+    {% if not announcements and not unchecked_courses and not unread_chats %}
     <div class="text-center py-5">
-        <i class="bi bi-mortarboard-fill display-1 text-muted mb-3"></i>
-        <h2 class="fw-bold">Добро пожаловать</h2>
-        <p class="text-muted fs-5">Здесь будут объявления и полезная информация</p>
+        <i class="bi bi-emoji-neutral display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">Ничего интересного не произошло</h4>
+    </div>
+    {% endif %}
+</div>
+
+{# ============ МОДАЛЬНОЕ ОКНО ЧАТА ДЛЯ ПРЕПОДАВАТЕЛЯ ============ #}
+<div class="modal fade" id="teacherChatModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-chat-dots-fill text-primary me-2"></i>
+                    Переписка — <span id="teacherChatStudentFio"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 d-flex flex-column" style="height: 450px;">
+                <div class="flex-grow-1 overflow-auto p-3" id="teacherChatMessages"
+                     style="background-color: rgba(240, 245, 255, 0.5);">
+                    <p class="text-muted text-center small mt-3">Загрузка...</p>
+                </div>
+                <div class="p-2 border-top">
+                    <form id="teacherChatSendForm" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <input type="text" id="teacherChatInput" class="form-control form-control-sm"
+                               placeholder="Введите сообщение..." autocomplete="off">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ============ Чат для преподавателя ============
+        const teacherChatModal = document.getElementById('teacherChatModal');
+        if (teacherChatModal) {
+            const bsChatModal = new bootstrap.Modal(teacherChatModal);
+            const chatMessagesDiv = document.getElementById('teacherChatMessages');
+            const chatSendForm = document.getElementById('teacherChatSendForm');
+            const chatInput = document.getElementById('teacherChatInput');
+            const chatStudentFio = document.getElementById('teacherChatStudentFio');
+
+            let chatCourseId = null;
+            let chatStudentId = null;
+            let chatPollTimer = null;
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            function renderChatMessage(msg) {
+                const div = document.createElement('div');
+                div.className = 'mb-2';
+                const isStudent = msg.is_from_student;
+                const align = isStudent ? 'text-start' : 'text-end';
+                const bgColor = isStudent
+                    ? 'background-color: rgba(220, 235, 255, 0.8); border-radius: 12px 12px 12px 4px;'
+                    : 'background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;';
+
+                div.innerHTML = '<div class="' + align + '">' +
+                    '<small class="text-muted d-block">' + htmlEscape(msg.sender_name) + ' · ' + htmlEscape(msg.created_at) + '</small>' +
+                    '<span class="d-inline-block px-3 py-1" style="' + bgColor + ' max-width: 85%;">' + htmlEscape(msg.text) + '</span>' +
+                    '</div>';
+                return div;
+            }
+
+            function htmlEscape(str) {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.appendChild(document.createTextNode(str));
+                return div.innerHTML;
+            }
+
+            function loadTeacherChat(courseId, stdId, stdFio) {
+                chatCourseId = courseId;
+                chatStudentId = stdId;
+                chatStudentFio.textContent = stdFio;
+                chatMessagesDiv.innerHTML = '<p class="text-muted text-center small">Загрузка...</p>';
+
+                if (chatPollTimer) clearInterval(chatPollTimer);
+
+                fetchTeacherChatMessages(true);
+
+                chatPollTimer = setInterval(function() {
+                    if (chatCourseId && chatStudentId) {
+                        fetchTeacherChatMessages(false);
+                    }
+                }, 5000);
+            }
+
+            function fetchTeacherChatMessages(scrollToBottom) {
+                if (scrollToBottom === undefined) scrollToBottom = true;
+                const url = '/chat/api/' + chatCourseId + '/' + chatStudentId + '/';
+                fetch(url, { credentials: 'same-origin' })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('Error');
+                        return r.json();
+                    })
+                    .then(function(data) {
+                        chatMessagesDiv.innerHTML = '';
+                        if (data.messages && data.messages.length > 0) {
+                            data.messages.forEach(function(msg) {
+                                chatMessagesDiv.appendChild(renderChatMessage(msg));
+                            });
+                        } else {
+                            chatMessagesDiv.innerHTML = '<p class="text-muted text-center small mt-3">Нет сообщений. Начните переписку.</p>';
+                        }
+                        if (scrollToBottom) {
+                            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                        }
+                    })
+                    .catch(function() {
+                        chatMessagesDiv.innerHTML = '<p class="text-danger text-center small">Ошибка загрузки</p>';
+                    });
+            }
+
+            chatSendForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const text = chatInput.value.trim();
+                if (!text) return;
+                if (!chatCourseId || !chatStudentId) return;
+
+                const url = '/chat/api/' + chatCourseId + '/' + chatStudentId + '/';
+                const csrfToken = getCookie('csrftoken');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({ text: text }),
+                    credentials: 'same-origin',
+                })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error('Error');
+                        return r.json();
+                    })
+                    .then(function(msg) {
+                        chatMessagesDiv.appendChild(renderChatMessage(msg));
+                        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                        chatInput.value = '';
+                        chatInput.focus();
+                    })
+                    .catch(function() {
+                        alert('Не удалось отправить сообщение');
+                    });
+            });
+
+            // При закрытии модалки останавливаем поллинг и перезагружаем страницу
+            teacherChatModal.addEventListener('hidden.bs.modal', function() {
+                if (chatPollTimer) {
+                    clearInterval(chatPollTimer);
+                    chatPollTimer = null;
+                }
+                chatCourseId = null;
+                chatStudentId = null;
+                window.location.reload();
+            });
+
+            // Клик по кнопке "Ответить"
+            document.querySelectorAll('.teacher-chat-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const courseId = this.getAttribute('data-course-id');
+                    const stdId = this.getAttribute('data-student-id');
+                    const stdFio = this.getAttribute('data-student-fio');
+                    loadTeacherChat(courseId, stdId, stdFio);
+                    bsChatModal.show();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #teacherChatMessages::-webkit-scrollbar {
+        width: 6px;
+    }
+    #teacherChatMessages::-webkit-scrollbar-thumb {
+        background-color: rgba(0,0,0,0.2);
+        border-radius: 3px;
+    }
+</style>
 {% endblock %}

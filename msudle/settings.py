@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'umo.apps.UmoConfig',
     'accounts.apps.AccountsConfig',
     'main.apps.MainConfig',
+    'chat.apps.ChatConfig',
+    'testing.apps.TestingConfig',
 ]
 
 AUTHENTICATION_BACKENDS = [

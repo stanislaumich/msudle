@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Чат — {{ room.course.short_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-chat-dots me-2"></i>{{ room.course.short_name }}
+            </h4>
+            <small class="text-muted">
+                {% if is_student %}
+                    Преподаватель курса
+                {% else %}
+                    {{ room.student.fio }}
+                {% endif %}
+            </small>
+        </div>
+        <a href="{% url 'chat:list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>К чатам
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3" style="border-radius: 12px;">
+        <div class="card-body p-3" id="chatMessages" style="max-height: 60vh; overflow-y: auto; background-color: rgba(200, 225, 255, 0.05);">
+            {% if messages_list %}
+                {% for msg in messages_list %}
+                <div class="d-flex mb-3 {% if msg.is_from_student and not is_student or not msg.is_from_student and is_student %}justify-content-start{% else %}justify-content-end{% endif %}">
+                    <div class="{% if msg.is_from_student and not is_student or not msg.is_from_student and is_student %}bg-body-secondary{% else %}bg-primary text-white{% endif %} rounded-3 px-3 py-2" style="max-width: 75%;">
+                        <div class="small fw-bold mb-1">{{ msg.sender_name }}</div>
+                        <div style="white-space: pre-wrap;">{{ msg.text }}</div>
+                        <div class="small mt-1 {% if msg.is_from_student and not is_student or not msg.is_from_student and is_student %}text-muted{% else %}text-white-50{% endif %}">
+                            {{ msg.created_at|date:"d.m.Y H:i:s" }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-chat display-1 mb-3"></i>
+                <p>Нет сообщений. Начните общение!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post" class="d-flex gap-2">
+        {% csrf_token %}
+        <textarea class="form-control" name="text" rows="2" placeholder="Введите сообщение..." required></textarea>
+        <button type="submit" class="btn btn-primary align-self-end">
+            <i class="bi bi-send me-1"></i>Отправить
+        </button>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var container = document.getElementById('chatMessages');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #chatMessages::-webkit-scrollbar { width: 6px; }
+    #chatMessages::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+</style>
+{% endblock %}

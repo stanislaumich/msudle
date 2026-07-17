@@ -19,42 +19,92 @@
 
     <div class="card shadow-sm border-0 mb-5" style="border-radius: 12px; background-color: rgba(200, 225, 255, 0.10);">
         <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.3) !important; border-radius: 12px 12px 0 0 !important;">
-            <h5 class="fw-bold mb-0">
-                <i class="bi bi-person me-2"></i>
-                {{ student_row.student.fio }}
+            <h5 class="fw-bold mb-1">
+                <i class="bi bi-book me-2"></i>
+                {{ course.full_name }}
             </h5>
+            {% if teachers %}
+            <small>
+                <i class="bi bi-envelope-fill text-danger me-1"></i>
+                {% for t in teachers %}
+                <a href="#" class="text-decoration-none student-grades-chat-btn fw-bold text-danger"
+                   data-course-id="{{ course.id }}"
+                   data-student-id="{{ user.id }}"
+                   data-course-name="{{ course.full_name|escapejs }}"
+                   title="Написать {{ t.name|escapejs }}">
+                    {{ t.name }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </small>
+            {% endif %}
         </div>
         <div class="card-body p-0" style="overflow-x: auto;">
             {% if all_control_units %}
             <table class="table table-bordered table-sm mb-0" style="min-width: 800px;">
                 <thead class="table-light">
                     <tr>
-                        <th class="text-nowrap p-2" style="position: sticky; left: 0; background: inherit; z-index: 1;">Студент</th>
                         {% for unit in all_control_units %}
-                        <th class="text-center p-2" style="min-width: 60px;">{{ unit.title|slice:":20" }}{% if unit.title|length > 20 %}…{% endif %}</th>
+                        <th class="text-center p-2 two-line-header">{{ unit.title }}</th>
                         {% endfor %}
                         <th class="text-center p-2" style="min-width: 80px; background-color: rgba(255, 235, 150, 0.3);">
-                            Σ баллов<br><small class="text-muted">(средний)</small>
+                            Σ баллов<br><small class="text-muted">Сумма / Средний</small>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="text-nowrap p-2" style="position: sticky; left: 0; background: rgba(235, 242, 255, 0.90); z-index: 1;">
-                            <small>{{ student_row.student.fio }}</small>
-                        </td>
                         {% for cell in student_row.cells %}
                         <td class="text-center p-1">
                             {% if cell.answer %}
                                 {% if cell.answer.checked %}
+                                    {% if not cell.answer.answer_text and not cell.answer.answer_file %}
+                                    {# Проверено преподавателем без ответа — зелёный кружок с жёлтым #}
+                                    <a href="#" class="btn-grade-icon text-decoration-none"
+                                       data-answer-id="{{ cell.answer.id }}"
+                                       data-unit-id="{{ cell.unit.id }}"
+                                       data-unit-title="{{ cell.unit.title|escapejs }}"
+                                       data-status="checked"
+                                       data-score="{{ cell.answer.score|default:'' }}"
+                                       data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                       data-answer-text=""
+                                       data-answer-file=""
+                                       data-answer-file-name=""
+                                       data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                       data-modified-at=""
+                                       data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                       data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                       data-comment="{{ cell.answer.comment|default:''|escapejs }}"
+                                       data-course-id="{{ course.id }}">
+                                        <i class="bi bi-x-circle-fill text-success fs-4"></i>
+                                        {% if cell.answer.score is not None %}
+                                        <small class="d-block">{{ cell.answer.score }}</small>
+                                        {% elif cell.answer.passed is True %}
+                                        <small class="d-block">+</small>
+                                        {% elif cell.answer.passed is False %}
+                                        <small class="d-block">&minus;</small>
+                                        {% endif %}
+                                    </a>
+                                    {% else %}
                                     {# Проверено — зелёная галочка #}
                                     <a href="#" class="btn-grade-icon text-decoration-none"
                                        data-answer-id="{{ cell.answer.id }}"
-                                       data-student="{{ student_row.student.fio|escapejs }}"
-                                       data-unit="{{ cell.unit.title|escapejs }}"
+                                       data-unit-id="{{ cell.unit.id }}"
+                                       data-unit-title="{{ cell.unit.title|escapejs }}"
                                        data-status="checked"
                                        data-score="{{ cell.answer.score|default:'' }}"
-                                       data-passed="{% if cell.answer.passed is not None %}{{ cell.answer.passed|yesno:'зачёт,не зачёт' }}{% endif %}">
+                                       data-passed="{% if cell.answer.passed is True %}зачёт{% elif cell.answer.passed is False %}не зачёт{% endif %}"
+                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                       data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
+                                       data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
+                                       data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                       data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                       data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                       data-checked-at="{{ cell.answer.checked_at|date:'d.m.Y H:i:s' }}"
+                                       data-checked-modified-at="{% if cell.answer.checked_modified_at %}{{ cell.answer.checked_modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                       data-comment="{{ cell.answer.comment|default:''|escapejs }}"
+                                       data-course-id="{{ course.id }}">
                                         <i class="bi bi-check-circle-fill text-success fs-4"></i>
                                         {% if cell.answer.score is not None %}
                                         <small class="d-block">{{ cell.answer.score }}</small>
@@ -64,23 +114,43 @@
                                         <small class="d-block">&minus;</small>
                                         {% endif %}
                                     </a>
+                                    {% endif %}
                                 {% else %}
-                                    {# Не проверено — жёлтый вопрос + 0 #}
                                     <a href="#" class="btn-grade-icon text-decoration-none"
                                        data-answer-id="{{ cell.answer.id }}"
-                                       data-student="{{ student_row.student.fio|escapejs }}"
-                                       data-unit="{{ cell.unit.title|escapejs }}"
-                                       data-status="unchecked">
+                                       data-unit-id="{{ cell.unit.id }}"
+                                       data-unit-title="{{ cell.unit.title|escapejs }}"
+                                       data-status="unchecked"
+                                       data-score=""
+                                       data-passed=""
+                                       data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                       data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                       data-answer-text="{{ cell.answer.answer_text|default:''|escapejs }}"
+                                       data-answer-file="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.url }}{% endif %}"
+                                       data-answer-file-name="{% if cell.answer.answer_file %}{{ cell.answer.answer_file.name|escapejs }}{% endif %}"
+                                       data-created-at="{{ cell.answer.created_at|date:'d.m.Y H:i:s' }}"
+                                       data-modified-at="{% if cell.answer.modified_at != cell.answer.created_at %}{{ cell.answer.modified_at|date:'d.m.Y H:i:s' }}{% endif %}"
+                                       data-course-id="{{ course.id }}">
                                         <i class="bi bi-question-circle-fill text-warning fs-4"></i>
                                         <small class="d-block">0</small>
                                     </a>
                                 {% endif %}
                             {% else %}
-                                {# Нет ответа — красный крестик + 0 #}
                                 <a href="#" class="btn-grade-icon text-decoration-none"
-                                   data-student="{{ student_row.student.fio|escapejs }}"
-                                   data-unit="{{ cell.unit.title|escapejs }}"
-                                   data-status="no_answer">
+                                   data-answer-id=""
+                                   data-unit-id="{{ cell.unit.id }}"
+                                   data-unit-title="{{ cell.unit.title|escapejs }}"
+                                   data-status="no_answer"
+                                   data-score=""
+                                   data-passed=""
+                                   data-grading-type="{{ cell.unit.grading_type|default:'score_100' }}"
+                                   data-max-score="{{ cell.unit.max_score|default:'100' }}"
+                                   data-answer-text=""
+                                   data-answer-file=""
+                                   data-answer-file-name=""
+                                   data-created-at=""
+                                   data-modified-at=""
+                                   data-course-id="{{ course.id }}">
                                     <i class="bi bi-x-circle-fill text-danger fs-4"></i>
                                     <small class="d-block">0</small>
                                 </a>
@@ -88,7 +158,7 @@
                         </td>
                         {% endfor %}
                         <td class="text-center p-1 fw-bold" style="background-color: rgba(255, 235, 150, 0.15);">
-                            {{ student_row.total_score }}
+                            {{ student_row.total_score }}<br><small class="text-muted">{{ student_row.avg_score }}</small>
                         </td>
                     </tr>
                 </tbody>
@@ -100,21 +170,153 @@
     </div>
 </div>
 
-{# Модалка просмотра ответа #}
+{# ============ МОДАЛЬНОЕ ОКНО ОТВЕТА ============ #}
 <div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-card-checklist text-primary me-2"></i>Просмотр ответа</h5>
+                <h5 class="modal-title"><i class="bi bi-card-checklist text-primary me-2"></i>Мой ответ</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <p><strong>Студент:</strong> <span id="gradeStudentName"></span></p>
-                <p><strong>Задание:</strong> <span id="gradeUnitTitle"></span></p>
-                <p id="gradeStatusInfo"></p>
+            <form method="post" id="gradeForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="" id="gradeNext">
+                <div class="modal-body">
+                    <!-- Информация о задании -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Задание:</strong> <span id="gradeUnitTitle"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Макс. балл:</strong> <span id="gradeMaxScore">—</span></p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Даты ответа -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата ответа</small>
+                                    <span id="gradeCreatedAt" class="fw-bold">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="gradeModifiedBlock" style="display:none;">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата изменения ответа</small>
+                                    <span id="gradeModifiedAt" class="fw-bold text-warning">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Даты проверки -->
+                    <div class="row mb-3" id="gradeCheckDatesBlock" style="display:none;">
+                        <div class="col-md-6">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата проверки</small>
+                                    <span id="gradeCheckedAt" class="fw-bold">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="gradeCheckModifiedBlock" style="display:none;">
+                            <div class="card bg-body-secondary border-0">
+                                <div class="card-body py-2 px-3">
+                                    <small class="text-muted d-block">Дата изменения оценки</small>
+                                    <span id="gradeCheckedModifiedAt" class="fw-bold text-warning">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Комментарий преподавателя -->
+                    <div id="gradeCommentBlock" style="display:none;">
+                        <hr>
+                        <h6 class="fw-bold mb-2"><i class="bi bi-chat-left-text me-1"></i>Комментарий преподавателя</h6>
+                        <div class="p-3 bg-body-secondary rounded-3 mb-3" id="gradeCommentText" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Текущая оценка -->
+                    <div id="gradeCurrentScoreBlock" style="display:none;">
+                        <hr>
+                        <h6 class="fw-bold mb-2"><i class="bi bi-check-lg me-1"></i>Текущая оценка</h6>
+                        <div class="p-3 bg-body-secondary rounded-3 mb-3">
+                            <span id="gradeCurrentScoreDisplay" class="fw-bold fs-5"></span>
+                        </div>
+                    </div>
+
+                    <!-- Содержимое предыдущего ответа -->
+                    <div id="gradeAnswerContent" style="display:none;">
+                        <hr>
+                        <h6 class="fw-bold mb-2"><i class="bi bi-file-text me-1"></i>Содержимое предыдущего ответа</h6>
+                        <div id="gradeAnswerTextBlock" style="display:none;" class="mb-3">
+                            <p class="text-muted small mb-1">Текстовый ответ:</p>
+                            <div class="p-3 bg-body-secondary rounded-3" id="gradeAnswerText" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="gradeAnswerFileBlock" style="display:none;" class="mb-3">
+                            <p class="text-muted small mb-1">Файл ответа:</p>
+                            <a href="#" id="gradeAnswerFileLink" class="btn btn-outline-primary btn-sm" target="_blank">
+                                <i class="bi bi-download me-1"></i><span id="gradeAnswerFileName"></span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Форма отправки / обновления ответа -->
+                    <h6 class="fw-bold mb-2"><i class="bi bi-reply me-1"></i>Отправить / обновить ответ</h6>
+                    <p class="text-muted small mb-3">Повторная отправка сбросит предыдущую оценку.</p>
+                    <div class="mb-3">
+                        <label for="gradeAnswerFileInput" class="form-label">Файл ответа</label>
+                        <input type="file" class="form-control" id="gradeAnswerFileInput" name="answer_file">
+                        <small class="text-muted">Загрузите файл с выполненным заданием (оставьте пустым, чтобы сохранить текущий)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gradeAnswerTextInput" class="form-label">Текст ответа</label>
+                        <textarea class="form-control" id="gradeAnswerTextInput" name="answer_text" rows="4" placeholder="Введите ваш ответ"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-send me-1"></i>Отправить ответ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{# ============ МОДАЛЬНОЕ ОКНО ЧАТА ДЛЯ СТУДЕНТА ============ #}
+<div class="modal fade" id="studentChatModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-chat-dots-fill text-primary me-2"></i>
+                    Переписка — <span id="studentChatCourseName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            <div class="modal-body p-0 d-flex flex-column" style="height: 450px;">
+                <div class="flex-grow-1 overflow-auto p-3" id="studentChatMessages"
+                     style="background-color: rgba(240, 245, 255, 0.5);">
+                    <p class="text-muted text-center small mt-3">Загрузка...</p>
+                </div>
+                <div class="p-2 border-top">
+                    <form id="studentChatSendForm" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <input type="text" id="studentChatInput" class="form-control form-control-sm"
+                               placeholder="Введите сообщение..." autocomplete="off">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -127,31 +329,223 @@
         const gradeModal = document.getElementById('gradeModal');
         if (gradeModal) {
             const bsModal = new bootstrap.Modal(gradeModal);
+            const gradeForm = document.getElementById('gradeForm');
+
             document.querySelectorAll('.btn-grade-icon').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const student = this.getAttribute('data-student');
-                    const unit = this.getAttribute('data-unit');
+
+                    const unitId = this.getAttribute('data-unit-id');
+                    const unitTitle = this.getAttribute('data-unit-title');
                     const status = this.getAttribute('data-status');
                     const score = this.getAttribute('data-score');
-                    const passed = this.getAttribute('data-passed');
+                    const passed = this.getAttribute('data-passed') || '';
+                    const gradingType = this.getAttribute('data-grading-type') || 'score_100';
+                    const maxScore = this.getAttribute('data-max-score') || '100';
+                    const courseId = this.getAttribute('data-course-id');
 
-                    document.getElementById('gradeStudentName').textContent = student;
-                    document.getElementById('gradeUnitTitle').textContent = unit;
+                    const answerText = this.getAttribute('data-answer-text') || '';
+                    const answerFile = this.getAttribute('data-answer-file') || '';
+                    const answerFileName = this.getAttribute('data-answer-file-name') || '';
+                    const createdAt = this.getAttribute('data-created-at') || '';
+                    const modifiedAt = this.getAttribute('data-modified-at') || '';
+                    const checkedAt = this.getAttribute('data-checked-at') || '';
+                    const checkedModifiedAt = this.getAttribute('data-checked-modified-at') || '';
 
-                    let statusText = '';
-                    if (status === 'checked') {
-                        statusText = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Проверено</span>';
-                        if (score) statusText += ' — ' + score + ' баллов';
-                        if (passed) statusText += ' — ' + passed;
-                    } else if (status === 'unchecked') {
-                        statusText = '<span class="text-warning"><i class="bi bi-question-circle-fill me-1"></i>Не проверено</span>';
+                    // Заголовок
+                    document.getElementById('gradeUnitTitle').textContent = '«' + unitTitle + '»';
+                    document.getElementById('gradeMaxScore').textContent = maxScore + ' балл(ов)';
+
+                    // Устанавливаем action формы и next
+                    gradeForm.action = '{% url "course:student_answer" 0 %}'.replace('0', unitId);
+                    document.getElementById('gradeNext').value = window.location.href;
+
+                    // Даты ответа
+                    document.getElementById('gradeCreatedAt').textContent = createdAt || '—';
+                    if (modifiedAt) {
+                        document.getElementById('gradeModifiedAt').textContent = modifiedAt;
+                        document.getElementById('gradeModifiedBlock').style.display = '';
                     } else {
-                        statusText = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Нет ответа</span>';
+                        document.getElementById('gradeModifiedBlock').style.display = 'none';
                     }
-                    document.getElementById('gradeStatusInfo').innerHTML = statusText;
+
+                    // Даты проверки
+                    if (status === 'checked') {
+                        document.getElementById('gradeCheckDatesBlock').style.display = '';
+                        document.getElementById('gradeCheckedAt').textContent = checkedAt || '—';
+                        if (checkedModifiedAt) {
+                            document.getElementById('gradeCheckedModifiedAt').textContent = checkedModifiedAt;
+                            document.getElementById('gradeCheckModifiedBlock').style.display = '';
+                        } else {
+                            document.getElementById('gradeCheckModifiedBlock').style.display = 'none';
+                        }
+                    } else {
+                        document.getElementById('gradeCheckDatesBlock').style.display = 'none';
+                    }
+
+                    // Комментарий преподавателя
+                    const answerComment = this.getAttribute('data-comment') || '';
+                    if (answerComment && status === 'checked') {
+                        document.getElementById('gradeCommentBlock').style.display = '';
+                        document.getElementById('gradeCommentText').textContent = answerComment;
+                    } else {
+                        document.getElementById('gradeCommentBlock').style.display = 'none';
+                    }
+
+                    // Текущая оценка
+                    if (status === 'checked') {
+                        document.getElementById('gradeCurrentScoreBlock').style.display = '';
+                        let currentDisplay = '';
+                        if (score) {
+                            currentDisplay = score + ' балл(ов)';
+                        }
+                        if (passed) {
+                            currentDisplay += (currentDisplay ? ' — ' : '') + passed;
+                        }
+                        if (!currentDisplay) currentDisplay = 'Оценка выставлена';
+                        document.getElementById('gradeCurrentScoreDisplay').textContent = currentDisplay;
+                    } else {
+                        document.getElementById('gradeCurrentScoreBlock').style.display = 'none';
+                    }
+
+                    // Содержимое предыдущего ответа
+                    let hasContent = false;
+                    if (answerText) {
+                        document.getElementById('gradeAnswerTextBlock').style.display = '';
+                        document.getElementById('gradeAnswerText').textContent = answerText;
+                        hasContent = true;
+                    } else {
+                        document.getElementById('gradeAnswerTextBlock').style.display = 'none';
+                    }
+                    if (answerFile) {
+                        document.getElementById('gradeAnswerFileBlock').style.display = '';
+                        document.getElementById('gradeAnswerFileLink').href = answerFile;
+                        document.getElementById('gradeAnswerFileName').textContent = answerFileName || 'Скачать файл';
+                        hasContent = true;
+                    } else {
+                        document.getElementById('gradeAnswerFileBlock').style.display = 'none';
+                    }
+                    document.getElementById('gradeAnswerContent').style.display = hasContent ? '' : 'none';
+
+                    // Очищаем поля формы
+                    document.getElementById('gradeAnswerFileInput').value = '';
+                    document.getElementById('gradeAnswerTextInput').value = '';
 
                     bsModal.show();
+                });
+            });
+        }
+
+        // ============ Чат для студента ============
+        const studentChatModal = document.getElementById('studentChatModal');
+        if (studentChatModal) {
+            const bsChatModal = new bootstrap.Modal(studentChatModal);
+            const chatMessagesDiv = document.getElementById('studentChatMessages');
+            const chatSendForm = document.getElementById('studentChatSendForm');
+            const chatInput = document.getElementById('studentChatInput');
+            const chatCourseName = document.getElementById('studentChatCourseName');
+
+            let chatCourseId = null;
+            let chatStudentId = null;
+            let chatPollTimer = null;
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            function renderChatMessage(msg) {
+                const div = document.createElement('div');
+                div.className = 'mb-2';
+                const isStudent = msg.is_from_student;
+                const align = isStudent ? 'text-end' : 'text-start';
+                const bgColor = isStudent
+                    ? 'background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;'
+                    : 'background-color: rgba(220, 235, 255, 0.8); border-radius: 12px 12px 12px 4px;';
+
+                div.innerHTML = '<div class="' + align + '">' +
+                    '<small class="text-muted d-block">' + htmlEscape(msg.sender_name) + ' · ' + htmlEscape(msg.created_at) + '</small>' +
+                    '<span class="d-inline-block px-3 py-1" style="' + bgColor + ' max-width: 85%;">' + htmlEscape(msg.text) + '</span>' +
+                    '</div>';
+                return div;
+            }
+
+            function htmlEscape(str) {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.appendChild(document.createTextNode(str));
+                return div.innerHTML;
+            }
+
+            function loadChat(courseId, stdId, courseName) {
+                chatCourseId = courseId;
+                chatStudentId = stdId;
+                chatCourseName.textContent = courseName;
+                chatMessagesDiv.innerHTML = '<p class="text-muted text-center small">Загрузка...</p>';
+                if (chatPollTimer) clearInterval(chatPollTimer);
+                fetchChat(true);
+                chatPollTimer = setInterval(function() {
+                    if (chatCourseId && chatStudentId) fetchChat(false);
+                }, 5000);
+            }
+
+            function fetchChat(scroll) {
+                if (scroll === undefined) scroll = true;
+                fetch('/chat/api/' + chatCourseId + '/' + chatStudentId + '/', { credentials: 'same-origin' })
+                    .then(function(r) { if (!r.ok) throw new Error('Error'); return r.json(); })
+                    .then(function(data) {
+                        chatMessagesDiv.innerHTML = '';
+                        if (data.messages && data.messages.length > 0) {
+                            data.messages.forEach(function(msg) { chatMessagesDiv.appendChild(renderChatMessage(msg)); });
+                        } else {
+                            chatMessagesDiv.innerHTML = '<p class="text-muted text-center small mt-3">Нет сообщений.</p>';
+                        }
+                        if (scroll) chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                    })
+                    .catch(function() { chatMessagesDiv.innerHTML = '<p class="text-danger text-center small">Ошибка</p>'; });
+            }
+
+            chatSendForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var text = chatInput.value.trim();
+                if (!text || !chatCourseId || !chatStudentId) return;
+                fetch('/chat/api/' + chatCourseId + '/' + chatStudentId + '/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ text: text }),
+                    credentials: 'same-origin',
+                })
+                    .then(function(r) { if (!r.ok) throw new Error('Error'); return r.json(); })
+                    .then(function(msg) {
+                        chatMessagesDiv.appendChild(renderChatMessage(msg));
+                        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                        chatInput.value = '';
+                        chatInput.focus();
+                    })
+                    .catch(function() { alert('Не удалось отправить сообщение'); });
+            });
+
+            studentChatModal.addEventListener('hidden.bs.modal', function() {
+                if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+                chatCourseId = null; chatStudentId = null;
+                window.location.reload();
+            });
+
+            document.querySelectorAll('.student-grades-chat-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadChat(this.getAttribute('data-course-id'), this.getAttribute('data-student-id'), this.getAttribute('data-course-name'));
+                    bsChatModal.show();
                 });
             });
         }
@@ -163,5 +557,15 @@
 <style>
     .btn-grade-icon { display: inline-block; cursor: pointer; }
     .btn-grade-icon:hover { opacity: 0.7; }
+    .two-line-header {
+        min-width: 55px;
+        max-width: 70px;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        font-size: 0.8rem;
+        line-height: 1.2;
+        vertical-align: middle;
+    }
 </style>
 {% endblock %}
