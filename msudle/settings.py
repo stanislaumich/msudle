@@ -11,6 +11,15 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+import sys
+from dotenv import load_dotenv
+
+# cx_Oracle уже установлен для Python 3.11
+# Django использует его напрямую через ENGINE: django.db.backends.oracle
+
+# Загрузка переменных окружения из файла .env
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,12 +96,59 @@ WSGI_APPLICATION = 'msudle.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# Конфигурация баз данных с поддержкой нескольких движков
+# Выбор движка через переменную окружения DB_ENGINE:
+# sqlite3, mysql, postgresql, oracle
+
+DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite3').lower()
+
 DATABASES = {
-    'default': {
+    'default': {}
+}
+
+if DB_ENGINE == 'sqlite3':
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / os.getenv('DB_NAME', 'db.sqlite3'),
+    }
+elif DB_ENGINE == 'mysql':
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME', 'msudle'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
+    }
+elif DB_ENGINE == 'postgresql':
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'msudle'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    }
+elif DB_ENGINE == 'oracle':
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.oracle',
+        'NAME': os.getenv('DB_NAME', 'XE'),
+        'USER': os.getenv('DB_USER', 'system'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '1521'),
+        'OPTIONS': {},
+    }
+else:
+    # По умолчанию используем SQLite
+    DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
-}
 
 
 # Password validation

@@ -1,0 +1,8 @@
+FILE="backup.DMP"
+LOG="imp_backup.log"
+FROMUSER=msudle
+TOUSER=msudle
+GRANTS=Y
+CONSTRAINTS=Y
+IGNORE=Y
+FEEDBACK=1000

@@ -1,0 +1,55 @@
+# ==============================================
+# ЗАВИСИМОСТИ ПРОЕКТА MSUDLE
+# ==============================================
+
+# Основной фреймворк Django LTS
+Django==4.2.20
+
+# Django REST Framework для API
+djangorestframework==3.15.2
+
+# Channels для веб-сокетов (чат)
+channels==4.1.0
+
+# Работа с переменными окружения
+python-dotenv==1.0.1
+
+# Обработка изображений
+pillow==12.3.0
+
+# Формы Bootstrap 5
+django-crispy-forms==2.3
+crispy-bootstrap5==2024.10
+
+# Драйвер Oracle Database
+#cx-Oracle==7.3.0
+
+# WSGI сервер для продакшена
+gunicorn==23.0.0
+
+# Раздача статических файлов
+whitenoise==6.7.0
+
+# Фильтрация в DRF
+django-filter==24.3
+
+# JWT аутентификация
+djangorestframework-simplejwt==5.3.1
+
+# Обработка загрузки файлов
+python-multipart==0.0.19
+
+# HTTP запросы
+requests==2.32.3
+
+# Часовые пояса
+pytz==2026.1
+
+# Парсер SQL
+sqlparse==0.5.3
+
+# Асинхронный слой
+asgiref==3.8.1
+
+# Утилиты для работы с пакетами
+setuptools==83.0.0

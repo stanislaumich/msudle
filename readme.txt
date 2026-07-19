@@ -9,7 +9,7 @@ Msudle — образовательная веб-платформа (LMS, ана
 Язык интерфейса: русский (ru), часовой пояс: Europe/Moscow.
 Git-репозиторий: https://github.com/stanislaumich/django.git
 
-Стек: Python 3 + Django 4.2 + SQLite + Bootstrap 5 (локально) + Bootstrap Icons.
+Стек: Python 3 + Django 4.2 + PostgreSQL (основная) / SQLite (резервная) + Bootstrap 5 (локально) + Bootstrap Icons.
 
 2. СТРУКТУРА ПРОЕКТА
 --------------------------------------------------------------------------------
@@ -202,7 +202,7 @@ msudle/                         # Корень Django-проекта
 5. НАСТРОЙКИ (settings.py)
 --------------------------------------------------------------------------------
 - DEBUG: True, LANGUAGE_CODE: 'ru', TIME_ZONE: 'Europe/Moscow'
-- DATABASE: SQLite
+- DATABASE: PostgreSQL 17 (d:\PostgreSQL\17\), выбирается через .env (DB_ENGINE)
 - INSTALLED_APPS: полные пути до AppConfig (course.apps.CourseConfig, ...)
   для корректной работы verbose_name в админке
 - AUTHENTICATION_BACKENDS: StudentBackend, EmailOrUsernameBackend
@@ -230,7 +230,7 @@ msudle/                         # Корень Django-проекта
 
 8. КЛЮЧЕВЫЕ ТОЧКИ
 --------------------------------------------------------------------------------
-- Запуск: python manage.py runserver
+- Запуск: C:\Python311-32\python.exe manage.py runserver (Python 3.11 32-bit)
 - Админка: /admin/ (нужен superuser)
 - Логин: кнопка «Войти» в navbar → форма (username/email/логин_студента + пароль)
 - Личный кабинет: /courses/ — плашки курсов с правами (3 колонки)
@@ -332,3 +332,18 @@ msudle/                         # Корень Django-проекта
       - Каждая карточка: название курса, кафедра, бейдж с количеством, кнопка «Проверить»
       - Кнопка «Проверить» ведёт на /course/<id>/grades/ (таблица успеваемости)
       - Блок отображается только если есть курсы с непроверенными ответами
+
+9.15. Переход на PostgreSQL 17 (19.07.2026):
+      - Установлен PostgreSQL 17 в d:\PostgreSQL\17\ (сервис postgresql-X64-17)
+      - Файл .env: DB_ENGINE=postgresql, DB_NAME=msudle, DB_USER=postgres,
+        DB_PASSWORD=postgres, DB_HOST=localhost, DB_PORT=5432
+      - Поддержка 4 движков БД через .env: sqlite3, mysql, postgresql, oracle
+      - Данные перенесены из SQLite (db.sqlite3) в PostgreSQL (687 объектов)
+      - Используется Python 3.11 32-bit (C:\Python311-32\python.exe)
+        для совместимости с Oracle 11g XE
+      - Удалены миграции students/0005_alter_student_id.py и 0006_alter_student_id.py
+        (попытка конвертации bigint ↔ uuid несовместима с PostgreSQL)
+      - Исправлена зависимость students/0007: ссылается на 0004 вместо 0006
+      - Дамп данных сохранён в data_dump.json (UTF-8, 178 КБ)
+      - Вспомогательные скрипты: recreate_db.py (пересоздание БД),
+        dump_sqlite.py (экспорт из SQLite в UTF-8)

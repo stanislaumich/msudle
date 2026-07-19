@@ -1,0 +1,4 @@
+
+IMP-00058: ORACLE error 1017 encountered
+ORA-01017: invalid username/password; logon deniedUsername: 
+IMP-00000: Import terminated unsuccessfully

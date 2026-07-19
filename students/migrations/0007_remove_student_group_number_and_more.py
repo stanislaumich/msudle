@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('students', '0006_alter_student_id'),
+        ('students', '0004_student_last_login'),
     ]
 
     operations = [
