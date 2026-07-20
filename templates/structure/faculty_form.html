@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{% if faculty %}Редактировать{% else %}Создать{% endif %} факультет — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        {% if faculty %}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать: {{ faculty.full_name }}
+        {% else %}
+        <i class="bi bi-building-add me-2"></i>Добавить факультет
+        {% endif %}
+    </h2>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="fullName" class="form-label">Полное наименование *</label>
+                        <input type="text" name="full_name" id="fullName" class="form-control" 
+                               value="{{ form_data.full_name|default:faculty.full_name|default:'' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="shortName" class="form-label">Краткое наименование</label>
+                        <input type="text" name="short_name" id="shortName" class="form-control" 
+                               value="{{ form_data.short_name|default:faculty.short_name|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="identifier" class="form-label">Идентификатор</label>
+                        <input type="text" name="identifier" id="identifier" class="form-control" 
+                               value="{{ form_data.identifier|default:faculty.identifier|default:'' }}" 
+                               placeholder="Например: fia">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="universitySelect" class="form-label">Университет *</label>
+                        <select name="university" id="universitySelect" class="form-select" required>
+                            <option value="">— Выберите университет —</option>
+                            {% for u in universities %}
+                            {% with selected=form_data.university|default:faculty.university.id|default:''|stringformat:"s" %}
+                            <option value="{{ u.id }}" {% if selected == u.id|stringformat:"s" %}selected{% endif %}>{{ u.full_name }}</option>
+                            {% endwith %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {% if faculty %}<i class="bi bi-check-lg me-1"></i>Сохранить
+                        {% else %}<i class="bi bi-plus-lg me-1"></i>Создать{% endif %}
+                    </button>
+                    <a href="{% url 'structure:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

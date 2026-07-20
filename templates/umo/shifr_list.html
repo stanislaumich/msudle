@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Шифры — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-upc-scan me-2"></i>Шифры специальностей
+        </h2>
+        {% if not user.fio|default:'' %}
+        <a href="{% url 'umo:shifr_create' %}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i>Добавить шифр
+        </a>
+        {% endif %}
+    </div>
+
+    {# Фильтр по факультету #}
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <label for="facultyFilter" class="col-form-label fw-semibold">
+                        <i class="bi bi-building me-1"></i>Факультет:
+                    </label>
+                </div>
+                <div class="col-auto flex-grow-1">
+                    <select name="faculty" id="facultyFilter" class="form-select" onchange="this.form.submit()">
+                        <option value="">— Все факультеты —</option>
+                        {% for f in faculties %}
+                        <option value="{{ f.id }}" {% if selected_faculty == f.id %}selected{% endif %}>{{ f.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if selected_faculty %}
+                <div class="col-auto">
+                    <a href="{% url 'umo:shifr_list' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-lg me-1"></i>Сбросить
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    {% if shifrs %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-primary">
+                <tr>
+                    <th>Шифр</th>
+                    <th>Название</th>
+                    <th>Квалификация</th>
+                    <th>Факультет</th>
+                    {% if not user.fio|default:'' %}
+                    <th style="width: 120px;">Действия</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for shifr in shifrs %}
+                <tr>
+                    <td><code class="fs-6">{{ shifr.code }}</code></td>
+                    <td>{{ shifr.name|default:"—" }}</td>
+                    <td>{{ shifr.qualification|default:"—" }}</td>
+                    <td>
+                        {% if shifr.faculty %}
+                        <span class="badge bg-info">{{ shifr.faculty.short_name|default:shifr.faculty.full_name }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% if not user.fio|default:'' %}
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'umo:shifr_edit' shifr.id %}" class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'umo:shifr_delete' shifr.id %}" class="btn btn-sm btn-outline-danger" title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted mt-2">Всего шифров: <strong>{{ shifrs|length }}</strong></p>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-upc-scan" style="font-size: 3rem;"></i>
+        <p class="mt-3 fs-5">Шифры не найдены</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -32,6 +32,8 @@ urlpatterns = [
     path('chat/', include('chat.urls')),
     path('testing/', include('testing.urls')),
     path('subject/', include('subject.urls')),
+    path('structure/', include('structure.urls')),
+    path('umo/', include('umo.urls')),
 ]
 
 if settings.DEBUG:

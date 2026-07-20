@@ -56,7 +56,6 @@ def subject_list(request):
 @user_passes_test(_is_teacher, login_url='/home/')
 def subject_create(request):
     """Создание новой дисциплины."""
-    faculties = Faculty.objects.all().order_by('full_name')
     departments = Department.objects.select_related('faculty').all().order_by('faculty__full_name', 'full_name')
     if request.method == 'POST':
         full_name = request.POST.get('full_name', '').strip()
@@ -66,21 +65,18 @@ def subject_create(request):
         if not full_name:
             messages.error(request, 'Введите полное наименование дисциплины.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'form_data': request.POST,
             })
         if not short_name:
             messages.error(request, 'Введите краткое наименование дисциплины.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'form_data': request.POST,
             })
         if not department_id:
             messages.error(request, 'Выберите кафедру.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'form_data': request.POST,
             })
@@ -94,7 +90,6 @@ def subject_create(request):
         messages.success(request, f'Дисциплина «{full_name}» создана.')
         return redirect('subject:list')
     return render(request, 'subject/create.html', {
-        'faculties': faculties,
         'departments': departments,
     })
 
@@ -104,7 +99,6 @@ def subject_create(request):
 def subject_edit(request, subject_id):
     """Редактирование дисциплины."""
     subject = get_object_or_404(Subject, id=subject_id)
-    faculties = Faculty.objects.all().order_by('full_name')
     departments = Department.objects.select_related('faculty').all().order_by('faculty__full_name', 'full_name')
     if request.method == 'POST':
         full_name = request.POST.get('full_name', '').strip()
@@ -114,7 +108,6 @@ def subject_edit(request, subject_id):
         if not full_name:
             messages.error(request, 'Введите полное наименование дисциплины.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'subject': subject,
                 'form_data': request.POST,
@@ -123,7 +116,6 @@ def subject_edit(request, subject_id):
         if not short_name:
             messages.error(request, 'Введите краткое наименование дисциплины.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'subject': subject,
                 'form_data': request.POST,
@@ -132,7 +124,6 @@ def subject_edit(request, subject_id):
         if not department_id:
             messages.error(request, 'Выберите кафедру.')
             return render(request, 'subject/create.html', {
-                'faculties': faculties,
                 'departments': departments,
                 'subject': subject,
                 'form_data': request.POST,
@@ -146,7 +137,6 @@ def subject_edit(request, subject_id):
         messages.success(request, f'Дисциплина «{full_name}» обновлена.')
         return redirect('subject:list')
     return render(request, 'subject/create.html', {
-        'faculties': faculties,
         'departments': departments,
         'subject': subject,
         'editing': True,

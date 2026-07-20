@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Структура — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-building me-2"></i>Структура университета
+        </h2>
+        <div class="d-flex gap-2">
+            <a href="{% url 'structure:faculty_create' %}" class="btn btn-success">
+                <i class="bi bi-plus-lg me-1"></i>Добавить факультет
+            </a>
+            <a href="{% url 'structure:department_create' %}" class="btn btn-outline-success">
+                <i class="bi bi-plus-lg me-1"></i>Добавить кафедру
+            </a>
+        </div>
+    </div>
+
+    {% if universities %}
+        {% for uni in universities %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0"><i class="bi bi-mortarboard me-2"></i>{{ uni.full_name }}</h5>
+                    {% if uni.short_name %}<small class="text-white-50">{{ uni.short_name }}</small>{% endif %}
+                </div>
+                <a href="{% url 'structure:university_edit' uni.id %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if uni.faculties.all %}
+                <div class="accordion" id="accordionUni{{ uni.id }}">
+                    {% for fac in uni.faculties.all %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ fac.id }}">
+                            <button class="accordion-button collapsed position-relative" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ fac.id }}" aria-expanded="false" 
+                                    aria-controls="collapse{{ fac.id }}" style="padding-right: 90px;">
+                                <span class="d-flex align-items-center gap-2 me-auto">
+                                    <span class="fw-semibold text-truncate">{{ fac.full_name }}</span>
+                                    {% if fac.short_name != fac.full_name %}
+                                    <span class="badge bg-secondary flex-shrink-0">{{ fac.short_name }}</span>
+                                    {% endif %}
+                                </span>
+                                <span class="badge bg-info position-absolute" style="right: 36px; top: 50%; transform: translateY(-50%); min-width: 55px; text-align: center;">{{ fac.departments.count }}&nbsp;каф.</span>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ fac.id }}" class="accordion-collapse collapse" 
+                             aria-labelledby="heading{{ fac.id }}" data-bs-parent="#accordionUni{{ uni.id }}">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2">
+                                    <a href="{% url 'structure:department_create' %}?faculty={{ fac.id }}" class="btn btn-sm btn-outline-success me-1">
+                                        <i class="bi bi-plus-lg"></i> Кафедра
+                                    </a>
+                                    <a href="{% url 'structure:faculty_edit' fac.id %}" class="btn btn-sm btn-outline-primary me-1">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'structure:faculty_delete' fac.id %}" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                                {% if fac.departments.all %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Кафедра</th>
+                                                <th>Код</th>
+                                                <th style="width: 100px;">Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for dep in fac.departments.all %}
+                                            <tr>
+                                                <td>{{ dep.full_name }}</td>
+                                                <td><code>{{ dep.identifier|default:"—" }}</code></td>
+                                                <td>
+                                                    <div class="d-flex gap-1">
+                                                        <a href="{% url 'structure:department_edit' dep.id %}" class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </a>
+                                                        <a href="{% url 'structure:department_delete' dep.id %}" class="btn btn-sm btn-outline-danger" title="Удалить">
+                                                            <i class="bi bi-trash"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <p class="text-muted mb-0">Нет кафедр</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <p class="mb-0">Нет факультетов</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-building" style="font-size: 3rem;"></i>
+        <p class="mt-3 fs-5">Нет данных о структуре</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

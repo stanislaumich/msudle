@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{% if shifr %}Редактировать{% else %}Создать{% endif %} шифр — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        {% if shifr %}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать шифр: {{ shifr.code }}
+        {% else %}
+        <i class="bi bi-plus-square me-2"></i>Добавить шифр
+        {% endif %}
+    </h2>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="codeField" class="form-label">Шифр *</label>
+                        <input type="text" name="code" id="codeField" class="form-control" 
+                               value="{{ form_data.code|default:shifr.code|default:'' }}" 
+                               placeholder="6-05-0612-01" required>
+                        <div class="form-text">Пример: 6-05-0612-01, 1-40-01-01</div>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="nameField" class="form-label">Название шифра</label>
+                        <input type="text" name="name" id="nameField" class="form-control" 
+                               value="{{ form_data.name|default:shifr.name|default:'' }}" 
+                               placeholder="Программная инженерия">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="qualificationField" class="form-label">Квалификация</label>
+                        <input type="text" name="qualification" id="qualificationField" class="form-control" 
+                               value="{{ form_data.qualification|default:shifr.qualification|default:'' }}" 
+                               placeholder="Инженер-программист">
+                    </div>
+                    <div class="col-md-12">
+                        <label for="facultySelect" class="form-label">Факультет</label>
+                        <select name="faculty" id="facultySelect" class="form-select">
+                            <option value="">— Не назначен —</option>
+                            {% for f in faculties %}
+                            {% with selected=form_data.faculty|default:shifr.faculty_id|default:''|stringformat:"s" %}
+                            <option value="{{ f.id }}" {% if selected == f.id|stringformat:"s" %}selected{% endif %}>{{ f.full_name }}</option>
+                            {% endwith %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Факультет, к которому относится данный шифр специальности</div>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {% if shifr %}<i class="bi bi-check-lg me-1"></i>Сохранить
+                        {% else %}<i class="bi bi-plus-lg me-1"></i>Создать{% endif %}
+                    </button>
+                    <a href="{% url 'umo:shifr_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

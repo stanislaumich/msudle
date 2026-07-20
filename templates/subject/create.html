@@ -1,36 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{% if editing %}Редактирование дисциплины{% else %}Добавление дисциплины{% endif %} — Msudle{% endblock %}
 
-{% block extra_js %}
-<script>
-    // При смене факультета — подгружаем кафедры через API
-    document.addEventListener('DOMContentLoaded', function() {
-        var facultySelect = document.getElementById('facultySelect');
-        var deptSelect = document.getElementById('deptSelect');
-        // Сохраняем опции кафедр (исключая дефолтную пустую)
-        var allDeptOptions = Array.from(deptSelect.options).filter(function(o) { return o.value !== ''; });
-
-        if (facultySelect && deptSelect) {
-            facultySelect.addEventListener('change', function() {
-                var facultyId = this.value;
-                deptSelect.innerHTML = '<option value="">Выберите кафедру...</option>';
-                if (facultyId) {
-                    allDeptOptions.forEach(function(opt) {
-                        if (opt.getAttribute('data-faculty') === facultyId) {
-                            deptSelect.appendChild(opt.cloneNode(true));
-                        }
-                    });
-                } else {
-                    allDeptOptions.forEach(function(opt) {
-                        deptSelect.appendChild(opt.cloneNode(true));
-                    });
-                }
-            });
-        }
-    });
-</script>
-{% endblock %}
-
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
@@ -61,29 +31,15 @@
                                    placeholder="Например: Матанализ">
                         </div>
                         <div class="mb-3">
-                            <label for="facultySelect" class="form-label">Факультет</label>
-                            <select name="faculty" id="facultySelect" class="form-select">
-                                <option value="">Все факультеты</option>
-                                {% for f in faculties %}
-                                <option value="{{ f.id }}"
-                                    {% if form_data.faculty and form_data.faculty|add:"0" == f.id %}selected
-                                    {% elif subject and subject.department.faculty_id == f.id %}selected
-                                    {% endif %}>
-                                    {{ f.full_name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3">
                             <label for="deptSelect" class="form-label">Кафедра <span class="text-danger">*</span></label>
                             <select name="department" id="deptSelect" class="form-select" required>
                                 <option value="">Выберите кафедру...</option>
                                 {% for d in departments %}
-                                <option value="{{ d.id }}" data-faculty="{{ d.faculty_id }}"
+                                <option value="{{ d.id }}"
                                     {% if form_data.department and form_data.department|add:"0" == d.id %}selected
                                     {% elif subject and subject.department_id == d.id %}selected
                                     {% endif %}>
-                                    {{ d.full_name }} ({{ d.faculty.short_name }})
+                                    {{ d.full_name }} ({{ d.faculty.full_name }})
                                 </option>
                                 {% endfor %}
                             </select>
