@@ -83,6 +83,13 @@ class Student(models.Model):
         help_text='Используется для входа в систему',
         default='',
     )
+    record_book_number = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        verbose_name='Номер зачётной книжки',
+        help_text='Необязательное поле',
+    )
     password = models.CharField(max_length=128, verbose_name='Пароль (хэш)', default='')
     last_login = models.DateTimeField(null=True, blank=True, verbose_name='Последний вход')
 

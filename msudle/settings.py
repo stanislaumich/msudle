@@ -36,6 +36,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# URL для перенаправления неавторизованных пользователей
+LOGIN_URL = '/students/login/'
+
 
 # Application definition
 

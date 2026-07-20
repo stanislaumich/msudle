@@ -27,7 +27,7 @@ class StudentInline(admin.TabularInline):
     model = Student
     form = StudentForm
     extra = 0
-    fields = ('fio', 'login', 'password')
+    fields = ('fio', 'login', 'record_book_number', 'password')
     show_change_link = True
     classes = ['collapse']
 
@@ -43,7 +43,7 @@ class StudentGroupAdmin(admin.ModelAdmin):
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     form = StudentForm
-    list_display = ('fio', 'login', 'get_group_number', 'get_subgroup_number')
+    list_display = ('fio', 'login', 'record_book_number', 'get_group_number', 'get_subgroup_number')
     list_filter = ('group__group_number',)
     search_fields = ('fio', 'login', 'group__group_number')
 

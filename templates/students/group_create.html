@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{% if group %}Редактировать{% else %}Создать{% endif %} группу — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        {% if group %}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать: {{ group }}
+        {% else %}
+        <i class="bi bi-diagram-3 me-2"></i>Добавить группу
+        {% endif %}
+    </h2>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="groupNumber" class="form-label">Номер группы *</label>
+                        <input type="text" name="group_number" id="groupNumber" class="form-control" 
+                               value="{{ form_data.group_number|default:group.group_number|default:'' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="subgroupNumber" class="form-label">Подгруппа</label>
+                        <input type="number" name="subgroup_number" id="subgroupNumber" class="form-control" 
+                               value="{{ form_data.subgroup_number|default:group.subgroup_number|default:'' }}"
+                               placeholder="Оставьте пустым, если нет">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="shifrSelect" class="form-label">Шифр</label>
+                        <select name="shifr" id="shifrSelect" class="form-select">
+                            <option value="">— Не указан —</option>
+                            {% for sh in shifrs %}
+                            {% with selected_shifr=form_data.shifr|default:group.shifr.id|default:''|stringformat:"s" %}
+                            <option value="{{ sh.id }}" {% if selected_shifr == sh.id|stringformat:"s" %}selected{% endif %}>
+                                {{ sh.code }} — {{ sh.qualification }}
+                            </option>
+                            {% endwith %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="facultySelect" class="form-label">Факультет</label>
+                        <select name="faculty" id="facultySelect" class="form-select">
+                            <option value="">— Не указан —</option>
+                            {% for f in faculties %}
+                            {% with selected_faculty=form_data.faculty|default:group.faculty.id|default:''|stringformat:"s" %}
+                            <option value="{{ f.id }}" {% if selected_faculty == f.id|stringformat:"s" %}selected{% endif %}>
+                                {{ f.full_name }}
+                            </option>
+                            {% endwith %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="enrollmentYear" class="form-label">Год поступления</label>
+                        <input type="number" name="enrollment_year" id="enrollmentYear" class="form-control" 
+                               min="2000" max="2100"
+                               value="{{ form_data.enrollment_year|default:group.enrollment_year|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="educationForm" class="form-label">Форма обучения</label>
+                        <select name="education_form" id="educationForm" class="form-select">
+                            <option value="">— Не указана —</option>
+                            {% with current_form=form_data.education_form|default:group.education_form|default:'' %}
+                            <option value="daytime" {% if current_form == 'daytime' %}selected{% endif %}>Дневная</option>
+                            <option value="correspondence" {% if current_form == 'correspondence' %}selected{% endif %}>Заочная</option>
+                            {% endwith %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="studyYears" class="form-label">Срок обучения (лет)</label>
+                        <input type="number" name="study_duration_years" id="studyYears" class="form-control" 
+                               min="0" max="10"
+                               value="{{ form_data.study_duration_years|default:group.study_duration_years|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="studyMonths" class="form-label">Срок обучения (мес.)</label>
+                        <input type="number" name="study_duration_months" id="studyMonths" class="form-control" 
+                               min="0" max="11"
+                               value="{{ form_data.study_duration_months|default:group.study_duration_months|default:'' }}">
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {% if group %}
+                        <i class="bi bi-check-lg me-1"></i>Сохранить
+                        {% else %}
+                        <i class="bi bi-plus-lg me-1"></i>Создать
+                        {% endif %}
+                    </button>
+                    <a href="{% url 'students:group_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

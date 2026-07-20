@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{% if student %}Редактировать{% else %}Создать{% endif %} студента — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        {% if student %}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать: {{ student.fio }}
+        {% else %}
+        <i class="bi bi-person-plus-fill me-2"></i>Добавить студента
+        {% endif %}
+    </h2>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="fioInput" class="form-label">ФИО *</label>
+                        <input type="text" name="fio" id="fioInput" class="form-control" 
+                               value="{{ form_data.fio|default:student.fio|default:'' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="loginInput" class="form-label">Логин *</label>
+                        <input type="text" name="login" id="loginInput" class="form-control" 
+                               value="{{ form_data.login|default:student.login|default:'' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="passwordInput" class="form-label">
+                            Пароль {% if not student %}*{% endif %}
+                        </label>
+                        <input type="password" name="password" id="passwordInput" class="form-control" 
+                               {% if not student %}required{% endif %}
+                               placeholder="{% if student %}Оставьте пустым, чтобы не менять{% endif %}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="recordBookInput" class="form-label">Зачётная книжка</label>
+                        <input type="text" name="record_book_number" id="recordBookInput" class="form-control" 
+                               value="{{ form_data.record_book_number|default:student.record_book_number|default:'' }}"
+                               placeholder="Необязательно">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="groupSelect" class="form-label">Группа *</label>
+                        <select name="group" id="groupSelect" class="form-select" required>
+                            <option value="">— Выберите группу —</option>
+                            {% for g in groups %}
+                            {% with selected_group=form_data.group|default:student.group.id|default:''|stringformat:"s" %}
+                            <option value="{{ g.id }}" {% if selected_group == g.id|stringformat:"s" %}selected{% endif %}>
+                                {{ g.group_number }}{% if g.subgroup_number %} (п/г {{ g.subgroup_number }}){% endif %}
+                            </option>
+                            {% endwith %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {% if student %}
+                        <i class="bi bi-check-lg me-1"></i>Сохранить
+                        {% else %}
+                        <i class="bi bi-plus-lg me-1"></i>Создать
+                        {% endif %}
+                    </button>
+                    <a href="{% url 'students:list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
