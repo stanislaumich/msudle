@@ -127,3 +127,25 @@ class Student(models.Model):
 
     def get_full_name(self):
         return self.fio
+
+
+class DeletedStudent(models.Model):
+    """Архив удалённых студентов (для возможности восстановления)."""
+    original_id = models.PositiveIntegerField(verbose_name='ID оригинального студента')
+    fio = models.CharField(max_length=300, verbose_name='ФИО')
+    login = models.CharField(max_length=100, verbose_name='Логин')
+    record_book_number = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Номер зачётной книжки',
+    )
+    password = models.CharField(max_length=128, verbose_name='Пароль (хэш)')
+    group_name = models.CharField(max_length=100, verbose_name='Группа')
+    last_login = models.DateTimeField(null=True, blank=True, verbose_name='Последний вход')
+    deleted_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата удаления')
+
+    class Meta:
+        verbose_name = 'Удалённый студент'
+        verbose_name_plural = 'Удалённые студенты'
+        ordering = ['-deleted_at']
+
+    def __str__(self):
+        return f'{self.fio} (удалён {self.deleted_at.strftime("%d.%m.%Y")})'

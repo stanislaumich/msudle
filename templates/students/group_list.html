@@ -17,6 +17,44 @@
         </div>
     </div>
 
+    <!-- Фильтры -->
+    <form method="get" class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="facultyInput" class="form-label">Факультет</label>
+                    <input type="text" id="facultyInput" class="form-control"
+                           value="{{ current_faculty_label }}"
+                           placeholder="Введите название факультета..."
+                           autocomplete="off"
+                           list="facultyList"
+                           onchange="onFacultyChange()">
+                    <input type="hidden" name="faculty" id="facultyHidden"
+                           value="{{ current_faculty|default:"" }}">
+                    <datalist id="facultyList">
+                        {% for f in faculties %}
+                        <option value="{{ f.full_name }}" data-id="{{ f.id }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-3">
+                    <label for="groupSearchInput" class="form-label">Номер группы</label>
+                    <input type="text" name="group_search" id="groupSearchInput" class="form-control"
+                           value="{{ group_search }}"
+                           placeholder="Введите номер...">
+                </div>
+                <div class="col-md-4 d-flex gap-2 align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel me-1"></i>Фильтровать
+                    </button>
+                    <a href="{% url 'students:group_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Сбросить
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
     {% if groups %}
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -74,4 +112,24 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function onFacultyChange() {
+    const input = document.getElementById('facultyInput');
+    const hidden = document.getElementById('facultyHidden');
+    const options = document.querySelectorAll('#facultyList option');
+    const typedValue = input.value.trim();
+    if (!typedValue) {
+        hidden.value = '';
+        return;
+    }
+    for (const opt of options) {
+        if (opt.value === typedValue) {
+            hidden.value = opt.dataset.id;
+            return;
+        }
+    }
+    hidden.value = '';
+}
+</script>
 {% endblock %}

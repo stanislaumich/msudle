@@ -28,24 +28,27 @@
                                placeholder="Оставьте пустым, если нет">
                     </div>
                     <div class="col-md-5">
-                        <label for="shifrSelect" class="form-label">Шифр</label>
-                        <select name="shifr" id="shifrSelect" class="form-select">
-                            <option value="">— Не указан —</option>
+                        <label for="shifrInput" class="form-label">Шифр</label>
+                        <input type="text" id="shifrInput" class="form-control"
+                               value="{{ shifr_label|default:"" }}"
+                               placeholder="Введите код или название для поиска..."
+                               autocomplete="off"
+                               list="shifrList"
+                               onchange="onShifrChange()">
+                        <input type="hidden" name="shifr" id="shifrHidden"
+                               value="{{ form_data.shifr|default:group.shifr_id|default_if_none:""|stringformat:"s" }}">
+                        <datalist id="shifrList">
                             {% for sh in shifrs %}
-                            {% with selected_shifr=form_data.shifr|default:group.shifr.id|default:''|stringformat:"s" %}
-                            <option value="{{ sh.id }}" {% if selected_shifr == sh.id|stringformat:"s" %}selected{% endif %}>
-                                {{ sh.code }} — {{ sh.qualification }}
-                            </option>
-                            {% endwith %}
+                            <option value="{{ sh.code }} — {{ sh.qualification }}" data-id="{{ sh.id }}"></option>
                             {% endfor %}
-                        </select>
+                        </datalist>
                     </div>
                     <div class="col-md-4">
                         <label for="facultySelect" class="form-label">Факультет</label>
                         <select name="faculty" id="facultySelect" class="form-select">
                             <option value="">— Не указан —</option>
                             {% for f in faculties %}
-                            {% with selected_faculty=form_data.faculty|default:group.faculty.id|default:''|stringformat:"s" %}
+                            {% with selected_faculty=form_data.faculty|default:group.faculty_id|default_if_none:""|stringformat:"s" %}
                             <option value="{{ f.id }}" {% if selected_faculty == f.id|stringformat:"s" %}selected{% endif %}>
                                 {{ f.full_name }}
                             </option>
@@ -97,5 +100,79 @@
             </form>
         </div>
     </div>
+
+    {% if group and students is not None %}
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-people me-2"></i>Студенты группы ({{ students|length }})</h5>
+            <a href="{% url 'students:create' %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Добавить студента
+            </a>
+        </div>
+        <div class="card-body p-0">
+            {% if students %}
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>ФИО</th>
+                        <th>Логин</th>
+                        <th>Зачётная книжка</th>
+                        <th class="text-end">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in students %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ s.fio }}</td>
+                        <td>{{ s.login }}</td>
+                        <td>{{ s.record_book_number|default:"—" }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'students:edit' s.id %}" class="btn btn-sm btn-outline-secondary" title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="post" action="{% url 'students:soft_delete' s.id %}" style="display:inline"
+                                  onsubmit="return confirm('Переместить студента «{{ s.fio }}» в архив?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Архивировать">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox display-4"></i>
+                <p>В этой группе пока нет студентов.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+function onShifrChange() {
+    const input = document.getElementById('shifrInput');
+    const hidden = document.getElementById('shifrHidden');
+    const options = document.querySelectorAll('#shifrList option');
+    const typedValue = input.value.trim();
+    if (!typedValue) {
+        hidden.value = '';
+        return;
+    }
+    for (const opt of options) {
+        if (opt.value === typedValue) {
+            hidden.value = opt.dataset.id;
+            return;
+        }
+    }
+    // If no match, keep whatever was typed as-is (allows manual entry of ID)
+    hidden.value = typedValue;
+}
+</script>
 {% endblock %}

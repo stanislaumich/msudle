@@ -3,7 +3,8 @@ from django.contrib.auth import login as auth_login, logout as auth_logout, auth
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .models import Student, StudentGroup
+from django.db import IntegrityError
+from .models import Student, StudentGroup, DeletedStudent
 
 
 def login_view(request):
@@ -201,11 +202,62 @@ def student_delete(request, student_id):
 
 @login_required
 @user_passes_test(_is_teacher, login_url='/students/login/')
+def student_soft_delete(request, student_id):
+    """Мягкое удаление студента: копия сохраняется в DeletedStudent, оригинал удаляется."""
+    student = get_object_or_404(Student, id=student_id)
+    if request.method == 'POST':
+        # Сохраняем копию в архив
+        DeletedStudent.objects.create(
+            original_id=student.id,
+            fio=student.fio,
+            login=student.login,
+            record_book_number=student.record_book_number,
+            password=student.password,
+            group_name=str(student.group) if student.group else '',
+            last_login=student.last_login,
+        )
+        name = student.fio
+        group_id = student.group_id
+        student.delete()
+        messages.success(request, f'Студент «{name}» перемещён в архив.')
+        if group_id:
+            return redirect('students:group_edit', group_id=group_id)
+        return redirect('students:group_list')
+    # GET — показать подтверждение
+    return render(request, 'students/delete_confirm.html', {
+        'student': student,
+    })
+
+
+@login_required
+@user_passes_test(_is_teacher, login_url='/students/login/')
 def group_list(request):
     """Список групп студентов."""
+    from structure.models import Faculty
     groups = StudentGroup.objects.select_related('shifr', 'faculty').order_by('group_number', 'subgroup_number')
+
+    faculty_id = request.GET.get('faculty')
+    if faculty_id:
+        groups = groups.filter(faculty_id=faculty_id)
+
+    group_search = request.GET.get('group_search', '').strip()
+    if group_search:
+        groups = groups.filter(group_number__icontains=group_search)
+
+    faculties = Faculty.objects.all().order_by('full_name')
+    current_faculty_label = ''
+    if faculty_id:
+        try:
+            current_faculty_label = str(faculties.get(id=faculty_id))
+        except Faculty.DoesNotExist:
+            pass
+
     return render(request, 'students/group_list.html', {
         'groups': groups,
+        'faculties': faculties,
+        'current_faculty': faculty_id,
+        'current_faculty_label': current_faculty_label,
+        'group_search': group_search,
     })
 
 
@@ -304,10 +356,67 @@ def group_edit(request, group_id):
         messages.success(request, f'Группа «{group}» обновлена.')
         return redirect('students:group_list')
 
+    students = group.students.all().order_by('fio')
+    shifr_label = str(group.shifr) if group.shifr else ''
     return render(request, 'students/group_create.html', {
         'shifrs': shifrs,
         'faculties': faculties,
         'group': group,
+        'students': students,
+        'shifr_label': shifr_label,
+    })
+
+
+@login_required
+@user_passes_test(_is_teacher, login_url='/students/login/')
+def archive_list(request):
+    """Список удалённых студентов (архив) с пагинацией по 10."""
+    deleted = DeletedStudent.objects.all()
+    paginator = Paginator(deleted, 10)
+    page = request.GET.get('page', 1)
+    try:
+        deleted_page = paginator.page(page)
+    except (EmptyPage, PageNotAnInteger):
+        deleted_page = paginator.page(1)
+    return render(request, 'students/archive_list.html', {
+        'deleted_students': deleted_page,
+    })
+
+
+@login_required
+@user_passes_test(_is_teacher, login_url='/students/login/')
+def archive_restore(request, deleted_id):
+    """Восстановление удалённого студента из архива."""
+    deleted = get_object_or_404(DeletedStudent, id=deleted_id)
+    if request.method == 'POST':
+        # Проверяем, не занят ли логин
+        if Student.objects.filter(login=deleted.login).exists():
+            messages.error(request, f'Невозможно восстановить: логин «{deleted.login}» уже занят.')
+            return redirect('students:archive')
+        try:
+            student = Student.objects.create(
+                id=deleted.original_id,
+                fio=deleted.fio,
+                login=deleted.login,
+                record_book_number=deleted.record_book_number,
+                password=deleted.password,
+                last_login=deleted.last_login,
+            )
+        except IntegrityError:
+            # ID занят — создаём с авто-ID
+            student = Student.objects.create(
+                fio=deleted.fio,
+                login=deleted.login,
+                record_book_number=deleted.record_book_number,
+                password=deleted.password,
+                last_login=deleted.last_login,
+            )
+        name = deleted.fio
+        deleted.delete()
+        messages.success(request, f'Студент «{name}» восстановлен из архива.')
+        return redirect('students:archive')
+    return render(request, 'students/archive_restore_confirm.html', {
+        'deleted': deleted,
     })
 
 

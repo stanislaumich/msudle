@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib import admin
-from .models import Student, StudentGroup
+from .models import Student, StudentGroup, DeletedStudent
 
 
 class StudentForm(forms.ModelForm):
@@ -63,3 +63,11 @@ class StudentAdmin(admin.ModelAdmin):
         elif not change:
             obj.set_password('')
         super().save_model(request, obj, form, change)
+
+
+@admin.register(DeletedStudent)
+class DeletedStudentAdmin(admin.ModelAdmin):
+    list_display = ('fio', 'login', 'group_name', 'deleted_at')
+    search_fields = ('fio', 'login', 'group_name')
+    list_filter = ('deleted_at',)
+    readonly_fields = ('original_id', 'fio', 'login', 'record_book_number', 'password', 'group_name', 'last_login', 'deleted_at')
