@@ -5,19 +5,13 @@ from django.db import models
 class StudentGroup(models.Model):
     """Модель группы студентов."""
     group_number = models.CharField(max_length=50, verbose_name='Номер группы')
-    subgroup_number = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        verbose_name='Номер подгруппы',
-        help_text='Может отсутствовать',
-    )
     shifr = models.ForeignKey(
         'umo.Shifr',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='groups',
-        verbose_name='Шифр',
+        verbose_name='Код специальности',
     )
     enrollment_year = models.PositiveSmallIntegerField(
         null=True,
@@ -57,11 +51,9 @@ class StudentGroup(models.Model):
     class Meta:
         verbose_name = 'Группа студентов'
         verbose_name_plural = 'Группы студентов'
-        unique_together = ('group_number', 'subgroup_number')
+        unique_together = ()
 
     def __str__(self):
-        if self.subgroup_number:
-            return f'{self.group_number} (п/г {self.subgroup_number})'
         return str(self.group_number)
 
 
@@ -138,6 +130,7 @@ class DeletedStudent(models.Model):
         max_length=50, blank=True, default='', verbose_name='Номер зачётной книжки',
     )
     password = models.CharField(max_length=128, verbose_name='Пароль (хэш)')
+    group_id = models.PositiveIntegerField(null=True, blank=True, verbose_name='ID группы')
     group_name = models.CharField(max_length=100, verbose_name='Группа')
     last_login = models.DateTimeField(null=True, blank=True, verbose_name='Последний вход')
     deleted_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата удаления')

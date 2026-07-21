@@ -34,7 +34,7 @@ class StudentInline(admin.TabularInline):
 
 @admin.register(StudentGroup)
 class StudentGroupAdmin(admin.ModelAdmin):
-    list_display = ('group_number', 'subgroup_number', 'shifr', 'enrollment_year', 'faculty', 'education_form')
+    list_display = ('group_number', 'shifr', 'enrollment_year', 'faculty', 'education_form')
     search_fields = ('group_number', 'shifr__code', 'enrollment_year', 'faculty__full_name', 'education_form')
     autocomplete_fields = ('shifr', 'faculty')
     inlines = [StudentInline]
@@ -43,17 +43,13 @@ class StudentGroupAdmin(admin.ModelAdmin):
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     form = StudentForm
-    list_display = ('fio', 'login', 'record_book_number', 'get_group_number', 'get_subgroup_number')
+    list_display = ('fio', 'login', 'record_book_number', 'get_group_number')
     list_filter = ('group__group_number',)
     search_fields = ('fio', 'login', 'group__group_number')
 
     @admin.display(description='Номер группы')
     def get_group_number(self, obj):
         return obj.group.group_number if obj.group else '-'
-
-    @admin.display(description='Подгруппа')
-    def get_subgroup_number(self, obj):
-        return obj.group.subgroup_number if obj.group else '-'
 
     def save_model(self, request, obj, form, change):
         """Хэширует пароль при сохранении, если он был установлен."""

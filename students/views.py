@@ -13,10 +13,6 @@ def login_view(request):
         login_val = request.POST.get('login', '').strip()
         password = request.POST.get('password', '')
 
-        # Django вызывает authenticate() на всех бэкендах по очереди
-        # и сохраняет путь к бэкенду, который вернул пользователя.
-        # Поэтому передаём login как username для EmailOrUsernameBackend
-        # и как login для StudentBackend (оба параметра через **kwargs).
         user_obj = authenticate(
             request,
             username=login_val,
@@ -27,7 +23,6 @@ def login_view(request):
             auth_login(request, user_obj)
             display_name = _get_display_name(user_obj)
             messages.success(request, f'Добро пожаловать, {display_name}!')
-            # Сотрудники/админы — на страницу курсов, студенты — на главную
             if hasattr(user_obj, 'fio'):
                 return redirect('student_home')
             return redirect('home')
@@ -61,7 +56,7 @@ def _is_teacher(user):
 @user_passes_test(_is_teacher, login_url='/students/login/')
 def student_list(request):
     """Список студентов с фильтрацией и поиском."""
-    groups = StudentGroup.objects.all().order_by('group_number', 'subgroup_number')
+    groups = StudentGroup.objects.all().order_by('group_number')
     students = Student.objects.select_related('group').order_by('fio')
 
     group_id = request.GET.get('group')
@@ -70,7 +65,12 @@ def student_list(request):
 
     search = request.GET.get('search', '')
     if search:
-        students = students.filter(fio__icontains=search) | students.filter(login__icontains=search)
+        search_lower = search.lower()
+        # Python-фильтрация для гарантированной регистронезависимости (кириллица в SQLite)
+        students = [
+            s for s in students
+            if search_lower in s.fio.lower() or search_lower in s.login.lower()
+        ]
 
     paginator = Paginator(students, 30)
     page = request.GET.get('page', 1)
@@ -91,7 +91,7 @@ def student_list(request):
 @user_passes_test(_is_teacher, login_url='/students/login/')
 def student_create(request):
     """Создание нового студента."""
-    groups = StudentGroup.objects.all().order_by('group_number', 'subgroup_number')
+    groups = StudentGroup.objects.all().order_by('group_number')
     if request.method == 'POST':
         fio = request.POST.get('fio', '').strip()
         login_val = request.POST.get('login', '').strip()
@@ -141,7 +141,7 @@ def student_create(request):
 def student_edit(request, student_id):
     """Редактирование студента."""
     student = get_object_or_404(Student, id=student_id)
-    groups = StudentGroup.objects.all().order_by('group_number', 'subgroup_number')
+    groups = StudentGroup.objects.all().order_by('group_number')
     if request.method == 'POST':
         fio = request.POST.get('fio', '').strip()
         login_val = request.POST.get('login', '').strip()
@@ -182,6 +182,7 @@ def student_edit(request, student_id):
     return render(request, 'students/create.html', {
         'groups': groups,
         'student': student,
+        'current_group_id': student.group_id or '',
     })
 
 
@@ -206,13 +207,13 @@ def student_soft_delete(request, student_id):
     """Мягкое удаление студента: копия сохраняется в DeletedStudent, оригинал удаляется."""
     student = get_object_or_404(Student, id=student_id)
     if request.method == 'POST':
-        # Сохраняем копию в архив
         DeletedStudent.objects.create(
             original_id=student.id,
             fio=student.fio,
             login=student.login,
             record_book_number=student.record_book_number,
             password=student.password,
+            group_id=student.group_id,
             group_name=str(student.group) if student.group else '',
             last_login=student.last_login,
         )
@@ -223,7 +224,6 @@ def student_soft_delete(request, student_id):
         if group_id:
             return redirect('students:group_edit', group_id=group_id)
         return redirect('students:group_list')
-    # GET — показать подтверждение
     return render(request, 'students/delete_confirm.html', {
         'student': student,
     })
@@ -234,7 +234,7 @@ def student_soft_delete(request, student_id):
 def group_list(request):
     """Список групп студентов."""
     from structure.models import Faculty
-    groups = StudentGroup.objects.select_related('shifr', 'faculty').order_by('group_number', 'subgroup_number')
+    groups = StudentGroup.objects.select_related('shifr', 'faculty').order_by('group_number')
 
     faculty_id = request.GET.get('faculty')
     if faculty_id:
@@ -271,7 +271,6 @@ def group_create(request):
     faculties = Faculty.objects.all().order_by('full_name')
     if request.method == 'POST':
         group_number = request.POST.get('group_number', '').strip()
-        subgroup_number = request.POST.get('subgroup_number', '').strip()
         shifr_id = request.POST.get('shifr') or None
         enrollment_year = request.POST.get('enrollment_year', '').strip()
         study_duration_years = request.POST.get('study_duration_years', '').strip()
@@ -285,17 +284,14 @@ def group_create(request):
                 'shifrs': shifrs, 'faculties': faculties, 'form_data': request.POST,
             })
 
-        subgroup = int(subgroup_number) if subgroup_number else None
-        # Проверка уникальности
-        if StudentGroup.objects.filter(group_number=group_number, subgroup_number=subgroup).exists():
-            messages.error(request, 'Группа с таким номером и подгруппой уже существует.')
+        if StudentGroup.objects.filter(group_number=group_number).exists():
+            messages.error(request, 'Группа с таким номером уже существует.')
             return render(request, 'students/group_create.html', {
                 'shifrs': shifrs, 'faculties': faculties, 'form_data': request.POST,
             })
 
         group = StudentGroup.objects.create(
             group_number=group_number,
-            subgroup_number=subgroup,
             shifr_id=shifr_id,
             enrollment_year=int(enrollment_year) if enrollment_year else None,
             study_duration_years=int(study_duration_years) if study_duration_years else None,
@@ -323,7 +319,6 @@ def group_edit(request, group_id):
     faculties = Faculty.objects.all().order_by('full_name')
     if request.method == 'POST':
         group_number = request.POST.get('group_number', '').strip()
-        subgroup_number = request.POST.get('subgroup_number', '').strip()
         shifr_id = request.POST.get('shifr') or None
         enrollment_year = request.POST.get('enrollment_year', '').strip()
         study_duration_years = request.POST.get('study_duration_years', '').strip()
@@ -337,15 +332,13 @@ def group_edit(request, group_id):
                 'shifrs': shifrs, 'faculties': faculties, 'group': group, 'form_data': request.POST,
             })
 
-        subgroup = int(subgroup_number) if subgroup_number else None
-        if StudentGroup.objects.filter(group_number=group_number, subgroup_number=subgroup).exclude(id=group_id).exists():
-            messages.error(request, 'Группа с таким номером и подгруппой уже существует.')
+        if StudentGroup.objects.filter(group_number=group_number).exclude(id=group_id).exists():
+            messages.error(request, 'Группа с таким номером уже существует.')
             return render(request, 'students/group_create.html', {
                 'shifrs': shifrs, 'faculties': faculties, 'group': group, 'form_data': request.POST,
             })
 
         group.group_number = group_number
-        group.subgroup_number = subgroup
         group.shifr_id = shifr_id
         group.enrollment_year = int(enrollment_year) if enrollment_year else None
         group.study_duration_years = int(study_duration_years) if study_duration_years else None
@@ -389,24 +382,30 @@ def archive_restore(request, deleted_id):
     """Восстановление удалённого студента из архива."""
     deleted = get_object_or_404(DeletedStudent, id=deleted_id)
     if request.method == 'POST':
-        # Проверяем, не занят ли логин
         if Student.objects.filter(login=deleted.login).exists():
             messages.error(request, f'Невозможно восстановить: логин «{deleted.login}» уже занят.')
             return redirect('students:archive')
+        group = None
+        if deleted.group_id:
+            try:
+                group = StudentGroup.objects.get(id=deleted.group_id)
+            except StudentGroup.DoesNotExist:
+                pass
         try:
-            student = Student.objects.create(
+            Student.objects.create(
                 id=deleted.original_id,
                 fio=deleted.fio,
                 login=deleted.login,
+                group=group,
                 record_book_number=deleted.record_book_number,
                 password=deleted.password,
                 last_login=deleted.last_login,
             )
         except IntegrityError:
-            # ID занят — создаём с авто-ID
-            student = Student.objects.create(
+            Student.objects.create(
                 fio=deleted.fio,
                 login=deleted.login,
+                group=group,
                 record_book_number=deleted.record_book_number,
                 password=deleted.password,
                 last_login=deleted.last_login,

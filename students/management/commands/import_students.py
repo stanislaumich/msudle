@@ -128,7 +128,6 @@ class Command(BaseCommand):
             fac = info.get('faculty')
             group = StudentGroup.objects.create(
                 group_number=gn,
-                subgroup_number=None,
                 faculty=fac,
             )
             group_map[gn] = group

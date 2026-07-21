@@ -1,16 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Шифры — Msudle{% endblock %}
+{% block title %}Коды специальностей — Msudle{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">
-            <i class="bi bi-upc-scan me-2"></i>Шифры специальностей
+            <i class="bi bi-upc-scan me-2"></i>Коды специальностей
         </h2>
         {% if not user.fio|default:'' %}
-        <a href="{% url 'umo:shifr_create' %}" class="btn btn-success">
-            <i class="bi bi-plus-lg me-1"></i>Добавить шифр
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'umo:shifr_create' %}" class="btn btn-success">
+                <i class="bi bi-plus-lg me-1"></i>Добавить код
+            </a>
+            <a href="{% url 'umo:shifr_export' %}" class="btn btn-outline-warning" title="Экспорт всех кодов (CSV)" id="exportShifrBtn">
+                <i class="bi bi-download me-1"></i>Экспорт
+            </a>
+            <div class="dropdown">
+                <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-upload me-1"></i>Импорт
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{% url 'umo:shifr_import_full' %}">
+                        <i class="bi bi-arrow-repeat me-1"></i>Полный импорт (замена)
+                    </a></li>
+                    <li><a class="dropdown-item" href="{% url 'umo:shifr_import_partial' %}">
+                        <i class="bi bi-plus-circle me-1"></i>Частичный импорт (добавление)
+                    </a></li>
+                </ul>
+            </div>
+        </div>
         {% endif %}
     </div>
 
@@ -47,7 +65,7 @@
         <table class="table table-hover">
             <thead class="table-primary">
                 <tr>
-                    <th>Шифр</th>
+                    <th>Код</th>
                     <th>Название</th>
                     <th>Квалификация</th>
                     <th>Факультет</th>
@@ -86,11 +104,11 @@
             </tbody>
         </table>
     </div>
-    <p class="text-muted mt-2">Всего шифров: <strong>{{ shifrs|length }}</strong></p>
+    <p class="text-muted mt-2">Всего кодов: <strong>{{ shifrs|length }}</strong></p>
     {% else %}
     <div class="text-center py-5 text-muted">
         <i class="bi bi-upc-scan" style="font-size: 3rem;"></i>
-        <p class="mt-3 fs-5">Шифры не найдены</p>
+        <p class="mt-3 fs-5">Коды не найдены</p>
     </div>
     {% endif %}
 </div>

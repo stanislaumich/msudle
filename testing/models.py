@@ -91,3 +91,25 @@ class Choice(models.Model):
     def __str__(self):
         prefix = '✓ ' if self.is_correct else '  '
         return f'{prefix}{self.text[:80]}'
+
+
+class DeletedTest(models.Model):
+    """Архив удалённых тестов (для возможности восстановления)."""
+    original_id = models.PositiveIntegerField(verbose_name='ID оригинального теста')
+    author_id = models.PositiveIntegerField(verbose_name='ID автора')
+    author_name = models.CharField(max_length=300, verbose_name='Автор')
+    subject_id = models.PositiveIntegerField(verbose_name='ID дисциплины')
+    subject_name = models.CharField(max_length=500, verbose_name='Дисциплина')
+    name = models.CharField(max_length=300, verbose_name='Название теста')
+    description = models.TextField(null=True, blank=True, verbose_name='Описание')
+    export_data = models.TextField(verbose_name='JSON-данные теста')
+    created_at = models.DateTimeField(verbose_name='Дата создания теста')
+    deleted_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата удаления')
+
+    class Meta:
+        verbose_name = 'Удалённый тест'
+        verbose_name_plural = 'Удалённые тесты'
+        ordering = ['-deleted_at']
+
+    def __str__(self):
+        return f'{self.name} (удалён {self.deleted_at.strftime("%d.%m.%Y")})'

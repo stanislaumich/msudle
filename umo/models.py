@@ -3,9 +3,9 @@ from structure.models import Faculty
 
 
 class Shifr(models.Model):
-    """Модель шифра (направления/специальности)."""
-    code = models.CharField(max_length=20, verbose_name='Шифр', help_text='Пример: 6-05-0612-01, 1-40-01-01')
-    name = models.CharField(max_length=300, null=True, blank=True, verbose_name='Название шифра')
+    """Модель кода специальности (направления/специальности)."""
+    code = models.CharField(max_length=20, verbose_name='Код', help_text='Пример: 6-05-0612-01, 1-40-01-01')
+    name = models.CharField(max_length=300, null=True, blank=True, verbose_name='Название')
     qualification = models.CharField(max_length=300, null=True, blank=True, verbose_name='Квалификация')
     faculty = models.ForeignKey(
         Faculty,
@@ -14,12 +14,12 @@ class Shifr(models.Model):
         blank=True,
         related_name='shifrs',
         verbose_name='Факультет',
-        help_text='Факультет, к которому относится данный шифр',
+        help_text='Факультет, к которому относится данный код специальности',
     )
 
     class Meta:
-        verbose_name = 'Шифр'
-        verbose_name_plural = 'Шифры'
+        verbose_name = 'Код специальности'
+        verbose_name_plural = 'Коды специальностей'
 
     def __str__(self):
         if self.name:

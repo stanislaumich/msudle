@@ -49,6 +49,13 @@ class Faculty(models.Model):
         related_name='faculties_as_dean',
         verbose_name='Декан',
     )
+    group_numbers = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        verbose_name='Номера групп',
+        help_text='Через запятую: первые цифры номеров групп этого факультета, например: 1,2,3',
+    )
 
     class Meta:
         verbose_name = 'Факультет'

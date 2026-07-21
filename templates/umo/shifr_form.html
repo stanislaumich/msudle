@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{% if shifr %}Редактировать{% else %}Создать{% endif %} шифр — Msudle{% endblock %}
+{% block title %}{% if shifr %}Редактировать{% else %}Создать{% endif %} код — Msudle{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-4">
         {% if shifr %}
-        <i class="bi bi-pencil-square me-2"></i>Редактировать шифр: {{ shifr.code }}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать код: {{ shifr.code }}
         {% else %}
-        <i class="bi bi-plus-square me-2"></i>Добавить шифр
+        <i class="bi bi-plus-square me-2"></i>Добавить код
         {% endif %}
     </h2>
 
@@ -17,14 +17,14 @@
                 {% csrf_token %}
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label for="codeField" class="form-label">Шифр *</label>
+                        <label for="codeField" class="form-label">Код *</label>
                         <input type="text" name="code" id="codeField" class="form-control" 
                                value="{{ form_data.code|default:shifr.code|default:'' }}" 
                                placeholder="6-05-0612-01" required>
                         <div class="form-text">Пример: 6-05-0612-01, 1-40-01-01</div>
                     </div>
                     <div class="col-md-5">
-                        <label for="nameField" class="form-label">Название шифра</label>
+                        <label for="nameField" class="form-label">Название</label>
                         <input type="text" name="name" id="nameField" class="form-control" 
                                value="{{ form_data.name|default:shifr.name|default:'' }}" 
                                placeholder="Программная инженерия">
@@ -45,7 +45,7 @@
                             {% endwith %}
                             {% endfor %}
                         </select>
-                        <div class="form-text">Факультет, к которому относится данный шифр специальности</div>
+                        <div class="form-text">Факультет, к которому относится данный код специальности</div>
                     </div>
                 </div>
                 <div class="mt-4 d-flex gap-2">

@@ -49,12 +49,9 @@
             <div class="list-group">
                 {% for c in r.question.choices.all %}
                 <label class="list-group-item d-flex align-items-center gap-2
-                    {% if c.id in r.chosen_ids and not r.is_correct %}list-group-item-danger
-                    {% elif c.id in r.correct_ids %}list-group-item-success
-                    {% endif %}">
+                    {% if c.id in r.chosen_ids %}list-group-item-primary{% endif %}">
                     <span>{{ c.text }}</span>
-                    {% if c.id in r.correct_ids %}<i class="bi bi-check-circle-fill text-success ms-auto"></i>{% endif %}
-                    {% if c.id in r.chosen_ids and c.id not in r.correct_ids %}<i class="bi bi-x-circle-fill text-danger ms-auto"></i>{% endif %}
+                    {% if c.id in r.chosen_ids %}<i class="bi bi-hand-index-fill text-primary ms-auto"></i>{% endif %}
                 </label>
                 {% endfor %}
             </div>

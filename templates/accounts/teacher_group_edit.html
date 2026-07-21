@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{% if group %}Редактировать группу{% else %}Создать группу{% endif %} — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">
+        {% if group %}
+        <i class="bi bi-pencil-square me-2"></i>Редактировать: {{ group.name }}
+        {% else %}
+        <i class="bi bi-diagram-3 me-2"></i>Создать группу преподавателей
+        {% endif %}
+    </h2>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="groupName" class="form-label">Название группы <span class="text-danger">*</span></label>
+                    <input type="text" name="name" id="groupName" class="form-control" required
+                           value="{% if group %}{{ group.name }}{% endif %}" placeholder="Введите название группы">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Участники</label>
+                    <div class="card" style="max-height: 400px; overflow-y: auto;">
+                        <div class="card-body p-2">
+                            {% for u in all_users %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="user_ids" value="{{ u.id }}"
+                                       id="user_{{ u.id }}"
+                                       {% if u.id in current_ids %}checked{% endif %}>
+                                <label class="form-check-label" for="user_{{ u.id }}">
+                                    {{ u.get_full_name|default:u.get_username }}
+                                    <small class="text-muted">({{ u.get_username }})</small>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted p-2">Нет зарегистрированных преподавателей.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        {% if group %}<i class="bi bi-check-lg me-1"></i>Сохранить
+                        {% else %}<i class="bi bi-plus-lg me-1"></i>Создать{% endif %}
+                    </button>
+                    <a href="{% url 'accounts:teacher_groups' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

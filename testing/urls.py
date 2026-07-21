@@ -14,4 +14,9 @@ urlpatterns = [
     path('api/<int:test_id>/questions/', api_views.api_question_list, name='api_question_list'),
     path('api/<int:test_id>/questions/create/', api_views.api_question_create, name='api_question_create'),
     path('api/question/<int:question_id>/update/', api_views.api_question_update, name='api_question_update'),
+    path('<int:test_id>/export/', views.test_export, name='export'),
+    path('import/', views.test_import, name='import'),
+    path('archive/', views.test_archive_list, name='archive'),
+    path('archive/<int:deleted_id>/restore/', views.test_archive_restore, name='archive_restore'),
+    path('archive/<int:deleted_id>/destroy/', views.test_archive_destroy, name='archive_destroy'),
 ]

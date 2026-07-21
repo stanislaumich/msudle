@@ -236,7 +236,7 @@
                 <small class="text-muted d-block mb-2">Подписаны:</small>
                 {% for eg in enrolled_groups %}
                 <span class="badge bg-primary me-2 mb-1 p-2 d-inline-flex align-items-center">
-                    {{ eg.group.group_number }}{% if eg.group.subgroup_number %}/{{ eg.group.subgroup_number }}{% endif %}
+                    {{ eg.group.group_number }}
                     <form method="post" action="{% url 'course:course_unenroll_group' eg.id %}" class="d-inline ms-1"
                           onsubmit="return confirm('Отписать группу «{{ eg.group|escapejs }}» от курса?');">
                         {% csrf_token %}
@@ -264,21 +264,26 @@
 
 {# Подписка #}
 <div class="modal fade" id="enrollModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header"><h5 class="modal-title"><i class="bi bi-person-plus text-primary me-2"></i>Подписать группы</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <form method="post" action="{% url 'course:course_enroll_groups' course.id %}">{% csrf_token %}
         <div class="modal-body">
-            <div class="row g-2">
-                {% for group in all_groups %}
-                <div class="col-6 col-md-4 col-lg-3"><div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="group_ids" value="{{ group.id }}" id="group{{ group.id }}"
-                           {% if group.id in enrolled_group_ids %}disabled{% endif %}>
-                    <label class="form-check-label" for="group{{ group.id }}">
-                        {{ group.group_number }}{% if group.subgroup_number %}/{{ group.subgroup_number }}{% endif %}
-                        {% if group.id in enrolled_group_ids %}<span class="text-muted small">(уже)</span>{% endif %}
-                    </label>
-                </div></div>
-                {% endfor %}
+            <div class="mb-3">
+                <label for="groupSearchInput" class="form-label">Поиск по номеру группы</label>
+                <input type="text" id="groupSearchInput" class="form-control" placeholder="Введите номер группы..." autocomplete="off">
+            </div>
+            <div class="mb-3">
+                <label for="enrollGroupSelect" class="form-label">Доступные группы (Ctrl+Click для множественного выбора)</label>
+                <select name="group_ids" id="enrollGroupSelect" class="form-select" multiple size="12">
+                    {% for group in all_groups %}
+                    <option value="{{ group.id }}"
+                            data-search="{{ group.group_number|lower }}"
+                            {% if group.id in enrolled_group_ids %}disabled class="text-muted"{% endif %}>
+                        {{ group.group_number }}
+                        {% if group.id in enrolled_group_ids %} (уже подписана){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
         <div class="modal-footer">
@@ -299,7 +304,7 @@
                 <form method="post" action="{% url 'course:course_unenroll_group' eg.id %}"
                       onsubmit="return confirm('Отписать группу «{{ eg.group|escapejs }}»?');">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ eg.group.group_number }}{% if eg.group.subgroup_number %}/{{ eg.group.subgroup_number }}{% endif %} <i class="bi bi-x ms-1"></i></button>
+                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ eg.group.group_number }} <i class="bi bi-x ms-1"></i></button>
                 </form>
                 {% endfor %}
             </div>
@@ -709,6 +714,24 @@
                     }
                     document.getElementById('deleteTopicForm').action = '{% url "course:topic_delete" 0 %}'.replace('0', topicId);
                     bsModal.show();
+                });
+            });
+        }
+
+        // --- Поиск групп в select ---
+        const groupSearchInput = document.getElementById('groupSearchInput');
+        const groupSelect = document.getElementById('enrollGroupSelect');
+        if (groupSearchInput && groupSelect) {
+            const allOptions = Array.from(groupSelect.options).map(function(opt) {
+                return { el: opt.cloneNode(true), search: (opt.getAttribute('data-search') || opt.textContent).toLowerCase() };
+            });
+            groupSearchInput.addEventListener('input', function() {
+                const q = this.value.trim().toLowerCase();
+                groupSelect.innerHTML = '';
+                allOptions.forEach(function(item) {
+                    if (!q || item.search.includes(q)) {
+                        groupSelect.appendChild(item.el.cloneNode(true));
+                    }
                 });
             });
         }

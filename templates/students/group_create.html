@@ -21,14 +21,8 @@
                         <input type="text" name="group_number" id="groupNumber" class="form-control" 
                                value="{{ form_data.group_number|default:group.group_number|default:'' }}" required>
                     </div>
-                    <div class="col-md-3">
-                        <label for="subgroupNumber" class="form-label">Подгруппа</label>
-                        <input type="number" name="subgroup_number" id="subgroupNumber" class="form-control" 
-                               value="{{ form_data.subgroup_number|default:group.subgroup_number|default:'' }}"
-                               placeholder="Оставьте пустым, если нет">
-                    </div>
                     <div class="col-md-5">
-                        <label for="shifrInput" class="form-label">Шифр</label>
+                        <label for="shifrInput" class="form-label">Код специальности</label>
                         <input type="text" id="shifrInput" class="form-control"
                                value="{{ shifr_label|default:"" }}"
                                placeholder="Введите код или название для поиска..."

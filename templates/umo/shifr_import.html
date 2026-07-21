@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Импорт кодов — Msudle{% endblock %}
+{% block content %}
+<div class="container mt-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h2 class="mb-0"><i class="bi bi-upload me-2"></i>
+{% if mode == 'full' %}Полный импорт (замена){% else %}Частичный импорт (добавление/обновление){% endif %}</h2>
+<a href="{% url 'umo:shifr_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>К списку кодов</a>
+</div>
+<div class="card mb-4"><div class="card-header"><h5 class="mb-0">Загрузка файла</h5></div>
+<div class="card-body">
+{% if mode == 'full' %}
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Внимание!</strong> Все существующие коды будут удалены и заменены.</div>
+{% else %}
+<div class="alert alert-info"><i class="bi bi-info-circle-fill me-1"></i>Новые коды добавятся. Существующие (по полю code) обновят название, квалификацию и факультет.</div>
+{% endif %}
+<form method="post" enctype="multipart/form-data" id="importForm">
+{% csrf_token %}
+<div class="mb-3"><label class="form-label">Файл CSV или JSON <span class="text-danger">*</span></label>
+<input type="file" name="import_file" class="form-control" accept=".csv,.json" required>
+<div class="form-text">CSV: <code>code;name;qualification;faculty_name</code> (разделитель — точка с запятой). JSON: массив объектов с теми же ключами.</div></div>
+<button type="submit" class="btn btn-{% if mode == 'full' %}danger{% else %}primary{% endif %}" id="submitBtn"><i class="bi bi-upload me-1"></i>{% if mode == 'full' %}Загрузить и заменить{% else %}Загрузить{% endif %}</button>
+<a href="{% url 'umo:shifr_list' %}" class="btn btn-outline-secondary" id="cancelBtn"><i class="bi bi-x-lg me-1"></i>Отмена</a>
+
+<div id="importProgress" class="mt-3" style="display:none;">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="spinner-border spinner-border-sm text-{% if mode == 'full' %}danger{% else %}primary{% endif %}" role="status"></div>
+        <strong>Идёт импорт кодов, подождите...</strong>
+    </div>
+    <div class="progress" style="height: 20px;">
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-{% if mode == 'full' %}danger{% else %}primary{% endif %}"
+             role="progressbar" style="width: 0%;">0%</div>
+    </div>
+</div>
+</form></div></div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('importForm').addEventListener('submit', function() {
+    var submitBtn = document.getElementById('submitBtn');
+    var cancelBtn = document.getElementById('cancelBtn');
+    var progressDiv = document.getElementById('importProgress');
+    var progressBar = document.getElementById('progressBar');
+    var fileInput = this.querySelector('input[type=file]');
+    if (!fileInput.files.length) return;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Импорт...';
+    cancelBtn.style.display = 'none';
+    progressDiv.style.display = '';
+    var width = 0;
+    var interval = setInterval(function() {
+        if (width >= 90) { clearInterval(interval); }
+        else { width += Math.random() * 15 + 3; if (width > 90) width = 90;
+            progressBar.style.width = width + '%'; progressBar.textContent = Math.round(width) + '%'; }
+    }, 300);
+});
+</script>
+{% endblock %}

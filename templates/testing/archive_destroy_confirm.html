@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Удалить тест — Msudle{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Окончательное удаление</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3 text-danger">Вы уверены, что хотите окончательно удалить тест? Это действие необратимо.</p>
+                    <ul class="list-group mb-3">
+                        <li class="list-group-item"><strong>Название:</strong> {{ deleted.name }}</li>
+                        <li class="list-group-item"><strong>Дисциплина:</strong> {{ deleted.subject_name }}</li>
+                        <li class="list-group-item"><strong>Удалён:</strong> {{ deleted.deleted_at|date:"d.m.Y H:i" }}</li>
+                    </ul>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger"><i class="bi bi-eraser-fill me-1"></i>Удалить окончательно</button>
+                            <a href="{% url 'testing:archive' %}" class="btn btn-outline-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -45,9 +45,9 @@
                         <select name="group" id="groupSelect" class="form-select" required>
                             <option value="">— Выберите группу —</option>
                             {% for g in groups %}
-                            {% with selected_group=form_data.group|default:student.group.id|default:''|stringformat:"s" %}
+                            {% with selected_group=form_data.group|default:current_group_id|default:''|stringformat:"s" %}
                             <option value="{{ g.id }}" {% if selected_group == g.id|stringformat:"s" %}selected{% endif %}>
-                                {{ g.group_number }}{% if g.subgroup_number %} (п/г {{ g.subgroup_number }}){% endif %}
+                                {{ g.group_number }}
                             </option>
                             {% endwith %}
                             {% endfor %}

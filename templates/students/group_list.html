@@ -61,8 +61,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Номер группы</th>
-                    <th>Подгруппа</th>
-                    <th>Шифр</th>
+                    <th>Код специальности</th>
                     <th>Факультет</th>
                     <th>Год поступления</th>
                     <th>Срок обучения</th>
@@ -74,7 +73,6 @@
                 {% for g in groups %}
                 <tr>
                     <td><strong>{{ g.group_number }}</strong></td>
-                    <td>{{ g.subgroup_number|default:"—" }}</td>
                     <td>{{ g.shifr.code|default:"—" }}</td>
                     <td>{{ g.faculty.full_name|default:"—" }}</td>
                     <td>{{ g.enrollment_year|default:"—" }}</td>

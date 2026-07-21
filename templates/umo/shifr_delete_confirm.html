@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Удалить шифр — Msudle{% endblock %}
+{% block title %}Удалить код — Msudle{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="card">
         <div class="card-body text-center py-5">
             <i class="bi bi-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
-            <h3 class="mt-3">Удалить шифр?</h3>
+            <h3 class="mt-3">Удалить код?</h3>
             <p class="fs-5 text-muted">
-                Вы действительно хотите удалить шифр <strong>{{ shifr.code }}</strong>
+                Вы действительно хотите удалить код <strong>{{ shifr.code }}</strong>
                 {% if shifr.name %}({{ shifr.name }}){% endif %}?
             </p>
-            <p class="text-danger">Это действие необратимо. Группы студентов, привязанные к этому шифру, потеряют связь.</p>
+            <p class="text-danger">Это действие необратимо. Группы студентов, привязанные к этому коду, потеряют связь.</p>
             <form method="post" class="mt-4">
                 {% csrf_token %}
                 <div class="d-flex justify-content-center gap-2">

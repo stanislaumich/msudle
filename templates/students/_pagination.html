@@ -1,0 +1,74 @@
+{% comment %}
+Variables expected from context:
+  current  — current page number
+  total    — total number of pages
+  qs       — current query string (may contain page=...)
+{% endcomment %}
+{% with prev5=current|add:"-5" next5=current|add:"5" %}
+<ul class="pagination justify-content-center mb-0">
+    {# В начало #}
+    {% if current > 2 %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page=1" title="В начало">&laquo;&laquo;</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">&laquo;&laquo;</span></li>
+    {% endif %}
+
+    {# -5 страниц #}
+    {% if prev5 >= 1 %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ prev5 }}" title="На 5 страниц назад">-5</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">-5</span></li>
+    {% endif %}
+
+    {# Предыдущая #}
+    {% if current > 1 %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ current|add:"-1" }}">&laquo;</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+    {% endif %}
+
+    {# Номера страниц #}
+    {% for num in paginator.page_range %}
+        {% if num == current %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > current|add:"-3" and num < current|add:"3" %}
+        <li class="page-item">
+            <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+    {% endfor %}
+
+    {# Следующая #}
+    {% if current < total %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ current|add:"1" }}">&raquo;</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+    {% endif %}
+
+    {# +5 страниц #}
+    {% if next5 <= total %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ next5 }}" title="На 5 страниц вперёд">+5</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">+5</span></li>
+    {% endif %}
+
+    {# В конец #}
+    {% if current < total|add:"-1" %}
+    <li class="page-item">
+        <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ total }}" title="В конец">&raquo;&raquo;</a>
+    </li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link">&raquo;&raquo;</span></li>
+    {% endif %}
+</ul>
+{% endwith %}

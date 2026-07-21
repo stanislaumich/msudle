@@ -72,7 +72,7 @@ def course_edit(request, course_id):
     enrolled_group_ids = set(eg.group_id for eg in enrolled_groups)
 
     from students.models import StudentGroup
-    all_groups = StudentGroup.objects.all().order_by('group_number', 'subgroup_number')
+    all_groups = StudentGroup.objects.all().order_by('group_number')
 
     context = {
         'course': course,
@@ -171,22 +171,26 @@ def _assign_default_permissions(creator, course):
         user=creator,
         defaults={'permission': 'full_access'},
     )
-    # Декан факультета (через subject → department → faculty)
-    department = course.subject.department
-    faculty = department.faculty
-    if faculty.dean:
-        CourseUserPermission.objects.get_or_create(
+    # Группа «Декан» — просмотр
+    try:
+        dean_group = Group.objects.get(name='Декан')
+        CourseGroupPermission.objects.get_or_create(
             course=course,
-            user=faculty.dean,
+            group=dean_group,
             defaults={'permission': 'view'},
         )
-    # Заведующий кафедрой
-    if department.head:
-        CourseUserPermission.objects.get_or_create(
+    except Group.DoesNotExist:
+        pass
+    # Группа «Заведующий кафедрой» — просмотр
+    try:
+        head_group = Group.objects.get(name='Заведующий кафедрой')
+        CourseGroupPermission.objects.get_or_create(
             course=course,
-            user=department.head,
+            group=head_group,
             defaults={'permission': 'view'},
         )
+    except Group.DoesNotExist:
+        pass
     # Группы УМО и Ректорат — просмотр
     for group_name in ('УМО', 'Ректорат'):
         try:

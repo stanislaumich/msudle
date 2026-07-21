@@ -11,12 +11,15 @@
                 Вы действительно хотите удалить студента <strong>{{ student.fio }}</strong>
                 (логин: <code>{{ student.login }}</code>{% if student.group %}, группа: {{ student.group }}{% endif %})?
             </p>
-            <p class="text-danger">Это действие необратимо.</p>
+            <p class="text-info">
+                <i class="bi bi-archive me-1"></i>
+                Студент будет перемещён в архив. При необходимости его можно будет восстановить.
+            </p>
             <form method="post" class="mt-4">
                 {% csrf_token %}
                 <div class="d-flex justify-content-center gap-2">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i>Удалить
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-archive me-1"></i>Переместить в архив
                     </button>
                     <a href="{% url 'students:list' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-x-lg me-1"></i>Отмена
