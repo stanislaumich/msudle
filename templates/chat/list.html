@@ -29,9 +29,22 @@
                         <h6 class="fw-bold mb-0 text-truncate" style="max-width: 70%;">
                             <i class="bi bi-book me-1 small"></i>{{ room.course.short_name }}
                         </h6>
-                        {% if room.unread > 0 %}
-                        <span class="badge bg-warning text-dark flex-shrink-0">{{ room.unread }}</span>
-                        {% endif %}
+                        <div class="d-flex gap-1">
+                            {% if room.unread > 0 %}
+                            <span class="badge bg-warning text-dark flex-shrink-0">{{ room.unread }}</span>
+                            {% endif %}
+                            {% if not is_student %}
+                            <form method="post" action="{% url 'chat:soft_delete' room.id %}"
+                                  onsubmit="event.stopPropagation(); return confirm('Удалить чат с «{{ room.student.fio|escapejs }}»?');"
+                                  class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm p-0 px-1" title="Удалить чат"
+                                        onclick="event.stopPropagation();">
+                                    <i class="bi bi-trash small"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </div>
                     <small class="text-muted d-block text-truncate mb-2">
                         {% if is_student %}

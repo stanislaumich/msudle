@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Архив пошаговых единиц — Msudle{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-archive me-2"></i>Архив пошаговых единиц
+            </h2>
+            <p class="text-muted mb-0">Удалённые пошаговые единицы</p>
+        </div>
+        <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>К списку
+        </a>
+    </div>
+
+    {% if deleted_units %}
+    <div class="row g-3">
+        {% for unit in deleted_units %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px; opacity: 0.75;">
+                <div class="card-body d-flex flex-column p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title fw-bold mb-0">{{ unit.title }}</h5>
+                        <span class="badge bg-secondary flex-shrink-0">Удалена</span>
+                    </div>
+                    <small class="text-muted d-block mb-1">
+                        Шагов: {{ unit.steps.count }}
+                    </small>
+                    <small class="text-muted d-block mb-3">
+                        <i class="bi bi-clock me-1"></i>Удалена: {{ unit.deleted_at|date:"d.m.Y H:i" }}
+                    </small>
+                    <div class="mt-auto d-flex gap-2">
+                        <form method="post" action="{% url 'course:step_by_step_restore' unit.id %}"
+                              onsubmit="return confirm('Восстановить пошаговую единицу «{{ unit.title|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Восстановить
+                            </button>
+                        </form>
+                        {% if user.is_staff %}
+                        <form method="post" action="{% url 'course:step_by_step_hard_delete' unit.id %}"
+                              onsubmit="return confirm('ПОЛНОСТЬЮ удалить пошаговую единицу «{{ unit.title|escapejs }}»? Это действие необратимо.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash me-1"></i>Удалить
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-archive display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">Архив пуст</h4>
+        <p class="text-muted">Нет удалённых пошаговых единиц</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

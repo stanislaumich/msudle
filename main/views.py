@@ -242,7 +242,8 @@ def dashboard(request):
 
     if hasattr(user, 'fio'):
         student_courses = Course.objects.filter(
-            group_students__group_id=user.group_id
+            group_students__group_id=user.group_id,
+            is_deleted=False,
         ).select_related('subject__department__faculty').distinct()
 
         from course.models import CourseAnnouncement, AnnouncementDismiss
@@ -285,7 +286,7 @@ def dashboard(request):
 
     all_perms = {**group_perms, **user_perms}
     course_ids = list(all_perms.keys())
-    courses = Course.objects.filter(id__in=course_ids).select_related('subject__department__faculty')
+    courses = Course.objects.filter(id__in=course_ids, is_deleted=False).select_related('subject__department__faculty')
 
     from course.models import CourseAnnouncement, AnnouncementDismiss, StudentAnswer
     dismissed_ids = set(

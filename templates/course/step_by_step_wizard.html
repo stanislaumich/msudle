@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Создание шагов — {{ unit.title }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css?v=2" rel="stylesheet">
+<style>
+    .note-modal-backdrop { z-index: 1050 !important; }
+    .note-modal { z-index: 1055 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-list-ol me-2"></i>{{ unit.title }}
+            </h2>
+            <p class="text-muted mb-0">
+                {% if course %}Курс: {{ course.short_name }} — {{ course.full_name }}{% else %}Курс: не назначен{% endif %}
+                {% if steps %}<span class="ms-2">| Создано шагов: {{ steps|length }}</span>{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'course:step_by_step_edit' unit.id %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i>Редактор
+            </a>
+            <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>К списку
+            </a>
+        </div>
+    </div>
+
+    {% if steps %}
+    <div class="mb-4">
+        <h5 class="fw-semibold mb-2"><i class="bi bi-flag me-1"></i>Созданные шаги:</h5>
+        <div class="list-group list-group-flush">
+            {% for step in steps %}
+            <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                <div>
+                    <i class="bi bi-flag-fill me-2 text-success"></i>
+                    <span class="fw-semibold">Шаг {{ step.order }}: {{ step.title }}</span>
+                    {% with qcount=step.questions.count %}
+                    {% if qcount %}<span class="badge bg-info ms-2">{{ qcount }} вопрос(ов)</span>{% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0 mb-4" style="background-color: rgba(200, 240, 200, 0.12); border-radius: 12px;">
+        <div class="card-header py-3" style="background-color: rgba(160, 220, 160, 0.25); border-radius: 12px 12px 0 0;">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-plus-circle me-2"></i>
+                {% if steps %}Добавить следующий шаг{% else %}Создать первый шаг{% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" id="stepForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_step">
+
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <div class="mb-3">
+                            <label for="stepTitle" class="form-label fw-semibold">Название шага</label>
+                            <input type="text" class="form-control" id="stepTitle" name="step_title" maxlength="300" required placeholder="Например: Введение в тему">
+                        </div>
+                        <div class="mb-3">
+                            <label for="stepContent" class="form-label fw-semibold">Материал шага (текст лекции)</label>
+                            <textarea class="form-control" id="stepContent" name="step_content" rows="14" placeholder="Введите материал, излагаемый на данном шаге..."></textarea>
+                            <small class="text-muted">Основной текст, который увидит студент на этом шаге.</small>
+                            <div class="alert alert-info py-2 mt-2 mb-0 small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                <strong>Картинки:</strong> перетащите (Drag & Drop) или вставьте из буфера (Ctrl+V).<br>
+                                <strong>Ссылки:</strong> переключитесь в режим <i class="bi bi-code-slash"></i> «Code View» и вставьте HTML-код ссылки вручную.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-7">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">Контрольные вопросы</label>
+                            <button type="button" class="btn btn-outline-success btn-sm" id="addQuestionBtn">
+                                <i class="bi bi-plus-lg me-1"></i>Добавить вопрос
+                            </button>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            Добавьте вопросы с вариантами ответов. Отметьте галочкой правильные варианты.
+                            Студент должен ответить правильно на все вопросы, чтобы перейти дальше.
+                        </small>
+
+                        <div id="questionsContainer">
+                            <div class="question-block mb-3 p-3 rounded-3 border" data-qindex="0" style="background-color: rgba(255, 245, 220, 0.15);">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary">Вопрос 1</span>
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-question-btn d-none" title="Удалить вопрос"><i class="bi bi-x"></i></button>
+                                </div>
+                                <textarea class="form-control question-text mb-2" rows="2" placeholder="Текст вопроса..."></textarea>
+                                <div class="choices-container">
+                                    <small class="text-muted d-block mb-1">Варианты ответов:</small>
+                                    <div class="input-group input-group-sm mb-1 choice-row">
+                                        <span class="input-group-text"><input type="checkbox" class="choice-correct" title="Правильный ответ"></span>
+                                        <input type="text" class="form-control choice-text" placeholder="Вариант ответа" maxlength="500">
+                                    </div>
+                                    <div class="input-group input-group-sm mb-1 choice-row">
+                                        <span class="input-group-text"><input type="checkbox" class="choice-correct" title="Правильный ответ"></span>
+                                        <input type="text" class="form-control choice-text" placeholder="Вариант ответа" maxlength="500">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm add-choice-btn mt-1"><i class="bi bi-plus me-1"></i>Добавить вариант</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="d-flex gap-2 justify-content-between align-items-center">
+                    <div>
+                        <button type="submit" class="btn btn-success btn-lg" id="submitStepBtn">
+                            <i class="bi bi-plus-lg me-1"></i>{% if steps %}Создать следующий шаг{% else %}Создать шаг{% endif %}
+                        </button>
+                        <small class="text-muted ms-2">(после создания можно будет добавить ещё шаги)</small>
+                    </div>
+                    {% if steps %}
+                    <button type="submit" class="btn btn-primary btn-lg" id="finishBtn">
+                        <i class="bi bi-check-lg me-1"></i>Завершить создание
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Модальное окно вставки ссылки #}
+<div class="modal fade" id="linkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Вставить ссылку</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-3">
+                <label for="linkText" class="form-label">Текст ссылки</label>
+                <input type="text" class="form-control" id="linkText" placeholder="Введите текст">
+            </div>
+            <div class="mb-3">
+                <label for="linkUrl" class="form-label">URL</label>
+                <input type="url" class="form-control" id="linkUrl" placeholder="https://example.com">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="button" class="btn btn-primary" id="insertLinkBtn">
+                <i class="bi bi-check-lg me-1"></i>Вставить
+            </button>
+        </div>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+{% if request.LANGUAGE_CODE == 'ru' %}
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/lang/summernote-ru-RU.min.js"></script>
+{% endif %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Summernote инициализация
+        // Отключаем popover Summernote (конфликтует с Bootstrap 5)
+        if ($.summernote) $.summernote.options.popover = { image: [], link: [], air: [] };
+        $('#stepContent').summernote({
+            height: 350,
+            lang: 'ru-RU',
+            dialogsInBody: true,
+            toolbar: [
+                ['style', ['bold', 'italic', 'underline', 'clear']],
+                ['font', ['strikethrough', 'superscript', 'subscript']],
+                ['para', ['ul', 'ol', 'paragraph']],
+                ['insert', ['linkDialog']],
+                ['table', ['table']],
+                ['view', ['fullscreen', 'codeview']],
+            ],
+            buttons: {
+                linkDialog: function(context) {
+                    var ui = $.summernote.ui;
+                    var button = ui.button({
+                        contents: '<i class="note-icon-link"></i>',
+                        tooltip: 'Вставить ссылку',
+                        click: function() {
+                            // Открываем Bootstrap модалку
+                            var sel = $('#stepContent').summernote('createRange');
+                            var selectedText = sel.toString() || '';
+                            $('#linkUrl').val('');
+                            $('#linkText').val(selectedText);
+                            $('#linkModal').modal('show');
+                            $('#linkUrl').focus();
+                        }
+                    });
+                    return button.render();
+                }
+            },
+            callbacks: {
+                onImageUpload: function(files) {
+                    var data = new FormData();
+                    for (var i = 0; i < files.length; i++) {
+                        data.append('file', files[i]);
+                    }
+                    data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                    $.ajax({
+                        url: '/summernote/upload_attachment/',
+                        type: 'POST',
+                        data: data,
+                        cache: false,
+                        contentType: false,
+                        processData: false,
+                        success: function(url) {
+                            $('#stepContent').summernote('insertImage', url);
+                        }
+                    });
+                }
+            }
+        });
+        let questionCounter = 1;
+        const questionsContainer = document.getElementById('questionsContainer');
+
+        function createQuestionBlock(idx) {
+            const block = document.createElement('div');
+            block.className = 'question-block mb-3 p-3 rounded-3 border';
+            block.style.backgroundColor = 'rgba(255, 245, 220, 0.15)';
+            block.setAttribute('data-qindex', idx);
+            block.innerHTML =
+                '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                    '<span class="badge bg-primary">Вопрос ' + (idx + 1) + '</span>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm remove-question-btn" title="Удалить вопрос"><i class="bi bi-x"></i></button>' +
+                '</div>' +
+                '<textarea class="form-control question-text mb-2" rows="2" placeholder="Текст вопроса..."></textarea>' +
+                '<div class="choices-container">' +
+                    '<small class="text-muted d-block mb-1">Варианты ответов:</small>' +
+                    '<div class="input-group input-group-sm mb-1 choice-row">' +
+                        '<span class="input-group-text"><input type="checkbox" class="choice-correct" title="Правильный ответ"></span>' +
+                        '<input type="text" class="form-control choice-text" placeholder="Вариант ответа" maxlength="500">' +
+                    '</div>' +
+                    '<div class="input-group input-group-sm mb-1 choice-row">' +
+                        '<span class="input-group-text"><input type="checkbox" class="choice-correct" title="Правильный ответ"></span>' +
+                        '<input type="text" class="form-control choice-text" placeholder="Вариант ответа" maxlength="500">' +
+                    '</div>' +
+                '</div>' +
+                '<button type="button" class="btn btn-outline-secondary btn-sm add-choice-btn mt-1"><i class="bi bi-plus me-1"></i>Добавить вариант</button>';
+            return block;
+        }
+
+        function updateQuestionNumbers() {
+            const blocks = questionsContainer.querySelectorAll('.question-block');
+            blocks.forEach(function(block, idx) {
+                block.querySelector('.badge').textContent = 'Вопрос ' + (idx + 1);
+                block.setAttribute('data-qindex', idx);
+                const removeBtn = block.querySelector('.remove-question-btn');
+                if (blocks.length > 1) {
+                    removeBtn.classList.remove('d-none');
+                } else {
+                    removeBtn.classList.add('d-none');
+                }
+            });
+            questionCounter = blocks.length;
+        }
+
+        document.getElementById('addQuestionBtn').addEventListener('click', function() {
+            const block = createQuestionBlock(questionsContainer.querySelectorAll('.question-block').length);
+            questionsContainer.appendChild(block);
+            updateQuestionNumbers();
+        });
+
+        questionsContainer.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-question-btn')) {
+                const block = e.target.closest('.question-block');
+                if (questionsContainer.querySelectorAll('.question-block').length > 1) {
+                    block.remove();
+                    updateQuestionNumbers();
+                }
+            }
+            if (e.target.closest('.add-choice-btn')) {
+                const container = e.target.closest('.add-choice-btn').parentElement.querySelector('.choices-container');
+                const row = document.createElement('div');
+                row.className = 'input-group input-group-sm mb-1 choice-row';
+                row.innerHTML = '<span class="input-group-text"><input type="checkbox" class="choice-correct" title="Правильный ответ"></span>' +
+                    '<input type="text" class="form-control choice-text" placeholder="Вариант ответа" maxlength="500">';
+                container.appendChild(row);
+            }
+        });
+
+        // Перед отправкой формируем имена полей
+        function beforeSubmit(action) {
+            document.querySelector('input[name="action"]').value = action;
+            const blocks = questionsContainer.querySelectorAll('.question-block');
+            blocks.forEach(function(block, qi) {
+                // Имя textarea вопроса
+                const qText = block.querySelector('.question-text');
+                qText.setAttribute('name', 'question_text[]');
+
+                // Имена для вариантов ответа по индексу вопроса
+                const rows = block.querySelectorAll('.choice-row');
+                rows.forEach(function(row, ri) {
+                    const cb = row.querySelector('.choice-correct');
+                    const input = row.querySelector('.choice-text');
+                    input.setAttribute('name', 'choice_text_' + qi + '[]');
+                    cb.setAttribute('name', 'choice_correct_' + qi + '[]');
+                    cb.setAttribute('value', ri);
+                });
+            });
+        }
+
+        // Обработчик вставки ссылки
+        document.getElementById('insertLinkBtn').addEventListener('click', function() {
+            var text = $('#linkText').val().trim();
+            var url = $('#linkUrl').val().trim();
+            if (!url) { alert('Введите URL'); return; }
+            if (!text) text = url;
+            $('#stepContent').summernote('editor.restoreRange');
+            $('#stepContent').summernote('editor.focus');
+            $('#stepContent').summernote('createLink', { text: text, url: url, isNewWindow: true });
+            $('#linkModal').modal('hide');
+        });
+
+        document.getElementById('submitStepBtn').addEventListener('click', function(e) {
+            beforeSubmit('add_step');
+        });
+
+        const finishBtn = document.getElementById('finishBtn');
+        if (finishBtn) {
+            finishBtn.addEventListener('click', function(e) {
+                beforeSubmit('finish');
+            });
+        }
+    });
+</script>
+{% endblock %}

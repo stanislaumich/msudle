@@ -29,23 +29,6 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        {% if user.is_authenticated %}
-                            {% if user.fio|default:'' %}
-                            <a class="nav-link active" href="{% url 'student_home' %}">
-                                <i class="bi bi-house-door me-1"></i>Главная
-                            </a>
-                            {% else %}
-                            <a class="nav-link active" href="{% url 'home' %}">
-                                <i class="bi bi-house-door me-1"></i>Главная
-                            </a>
-                            {% endif %}
-                        {% else %}
-                        <a class="nav-link active" href="{% url 'index' %}">
-                            <i class="bi bi-house-door me-1"></i>Главная
-                        </a>
-                        {% endif %}
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{% url 'dashboard' %}">
                             <i class="bi bi-book me-1"></i>Курсы
                         </a>
@@ -86,25 +69,36 @@
                             </a></li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'structure:dashboard' %}">
-                            <i class="bi bi-building me-1"></i>Структура
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-1"></i>Настройки
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="settingsDropdown">
+                            <li><a class="dropdown-item" href="{% url 'structure:dashboard' %}">
+                                <i class="bi bi-building me-1"></i>Структура
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'subject:list' %}">
+                                <i class="bi bi-journal-bookmark me-1"></i>Дисциплины
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'umo:shifr_list' %}">
+                                <i class="bi bi-upc-scan me-1"></i>Коды
+                            </a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'subject:list' %}">
-                            <i class="bi bi-journal-bookmark me-1"></i>Дисциплины
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="learningDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-mortarboard me-1"></i>Обучение
                         </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'umo:shifr_list' %}">
-                            <i class="bi bi-upc-scan me-1"></i>Коды
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'testing:list' %}">
-                            <i class="bi bi-check2-square me-1"></i>Тесты
-                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="learningDropdown">
+                            <li><a class="dropdown-item" href="{% url 'testing:list' %}">
+                                <i class="bi bi-check2-square me-1"></i>Тесты
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'course:step_by_step_list' %}">
+                                <i class="bi bi-list-ol me-1"></i>Пошаговое
+                            </a></li>
+                        </ul>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="archiveDropdown" role="button"
@@ -117,6 +111,15 @@
                             </a></li>
                             <li><a class="dropdown-item" href="{% url 'testing:archive' %}">
                                 <i class="bi bi-check2-square me-1"></i>Тесты
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'course:course_archive' %}">
+                                <i class="bi bi-book me-1"></i>Курсы
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'chat:archive' %}">
+                                <i class="bi bi-chat-dots me-1"></i>Чаты
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'course:step_by_step_archive' %}">
+                                <i class="bi bi-list-ol me-1"></i>Пошаговые
                             </a></li>
                         </ul>
                     </li>

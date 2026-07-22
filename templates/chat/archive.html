@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Архив чатов — Msudle{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-archive me-2"></i>Архив чатов
+            </h2>
+            <p class="text-muted mb-0">Удалённые чаты</p>
+        </div>
+        <a href="{% url 'chat:list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>К активным чатам
+        </a>
+    </div>
+
+    {% if rooms %}
+    <div class="row g-3">
+        {% for room in rooms %}
+        <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+            <div class="card shadow-sm border-0" style="border-radius: 12px; opacity: 0.75;">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="fw-bold mb-0 text-truncate" style="max-width: 60%;">
+                            <i class="bi bi-book me-1 small"></i>{{ room.course.short_name }}
+                        </h6>
+                        <span class="badge bg-secondary flex-shrink-0">Удалён</span>
+                    </div>
+                    <small class="text-muted d-block text-truncate mb-2">
+                        {% if is_student %}
+                            <i class="bi bi-person me-1"></i>Преподаватель курса
+                        {% else %}
+                            <i class="bi bi-person me-1"></i>{{ room.student.fio }}
+                        {% endif %}
+                    </small>
+                    <small class="text-muted d-block mb-2">
+                        <i class="bi bi-clock me-1"></i>Удалён: {{ room.deleted_at|date:"d.m.Y H:i" }}
+                    </small>
+                    {% with last=room.last_message %}
+                    {% if last %}
+                    <p class="text-muted small mb-2 chat-last-msg">
+                        {{ last.text|truncatechars:80 }}
+                    </p>
+                    {% endif %}
+                    {% endwith %}
+                    {% if not is_student %}
+                    <div class="d-flex gap-2">
+                        <form method="post" action="{% url 'chat:restore' room.id %}"
+                              onsubmit="return confirm('Восстановить чат с «{{ room.student.fio|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Восстановить
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-archive display-1 text-muted mb-3"></i>
+        <h4 class="text-muted">Архив пуст</h4>
+        <p class="text-muted">Нет удалённых чатов</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-last-msg {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+    }
+</style>
+{% endblock %}

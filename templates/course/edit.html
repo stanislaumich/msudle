@@ -17,10 +17,10 @@
             <input type="hidden" id="apiMyTestsUrl" value="{% url 'testing:api_my_tests' %}">
             {% if user.is_staff %}
             <form method="post" action="{% url 'course:course_delete' course.id %}" class="d-inline"
-                  onsubmit="return confirm('Вы уверены, что хотите удалить курс «{{ course.full_name|escapejs }}»? Это действие необратимо — все разделы, темы, единицы, ответы студентов и файлы будут удалены.');">
+                  onsubmit="return confirm('Переместить курс «{{ course.full_name|escapejs }}» в архив? Курс будет скрыт из списков, но данные сохранятся. Восстановить можно через Архив → Курсы.');">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger" title="Удалить курс">
-                    <i class="bi bi-trash me-1"></i>Удалить курс
+                    <i class="bi bi-archive me-1"></i>В архив
                 </button>
             </form>
             {% endif %}
@@ -46,7 +46,7 @@
                 <form method="post" action="{% url 'course:section_toggle_visibility' section.id %}" class="d-inline"
                       title="{% if section.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                    <button type="submit" class="btn btn-sm {% if section.visible %}btn-outline-success{% else %}btn-outline-warning{% endif %}">
                         {% if section.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
                     </button>
                 </form>
@@ -78,7 +78,7 @@
                             <form method="post" action="{% url 'course:topic_toggle_visibility' topic.id %}" class="d-inline"
                                   title="{% if topic.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-warning btn-sm">
+                                <button type="submit" class="btn btn-sm {% if topic.visible %}btn-outline-success{% else %}btn-outline-warning{% endif %}">
                                     {% if topic.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
                                 </button>
                             </form>
@@ -120,7 +120,7 @@
                                 <form method="post" action="{% url 'course:unit_toggle_visibility' unit.id %}" class="d-inline"
                                       title="{% if unit.visible %}Скрыть от студентов{% else %}Показать студентам{% endif %}">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                                    <button type="submit" class="btn btn-sm {% if unit.visible %}btn-outline-success{% else %}btn-outline-warning{% endif %}">
                                         {% if unit.visible %}<i class="bi bi-eye"></i>{% else %}<i class="bi bi-eye-slash"></i>{% endif %}
                                     </button>
                                 </form>
@@ -230,7 +230,7 @@
     {# Подписка групп #}
     <div class="card shadow-sm border-0 mb-4" style="background-color: rgba(200, 225, 255, 0.10); border-radius: 12px;">
         <div class="card-body p-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2"></i>Подписка групп на курс</h5>
+            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2"></i>Подписка групп студентов на курс</h5>
             {% if enrolled_groups %}
             <div class="mb-3">
                 <small class="text-muted d-block mb-2">Подписаны:</small>
@@ -255,6 +255,97 @@
                     <i class="bi bi-person-dash me-1"></i>Отписать группы
                 </button>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Права преподавателей #}
+    <div class="card shadow-sm border-0 mb-4" style="background-color: rgba(210, 200, 255, 0.08); border-radius: 12px;">
+        <div class="card-body p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Права преподавателей</h5>
+
+            {# Персональные права #}
+            <div class="mb-4">
+                <h6 class="fw-semibold mb-2"><i class="bi bi-person-badge me-1"></i>Персональные права</h6>
+                {% if user_permissions %}
+                <div class="mb-2">
+                    {% for up in user_permissions %}
+                    <span class="badge bg-success me-2 mb-1 p-2 d-inline-flex align-items-center">
+                        {% if up.user.last_name %}{{ up.user.last_name }} {{ up.user.first_name }}{% else %}{{ up.user.get_username }}{% endif %} — {{ up.get_permission_display }}
+                        <form method="post" action="{% url 'course:teacher_permission_remove' course.id up.id %}" class="d-inline ms-1"
+                              onsubmit="return confirm('Удалить права «{{ up.user.get_full_name|default:up.user.get_username|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-close btn-close-white" style="font-size: 0.6rem;" title="Удалить"></button>
+                        </form>
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}<p class="text-muted small mb-2">Нет персональных прав.</p>{% endif %}
+                <form method="post" action="{% url 'course:teacher_permission_add' course.id %}" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <div class="col-auto">
+                        <input type="text" id="teacherSearch" class="form-control form-control-sm mb-1" placeholder="Поиск по фамилии..."
+                               oninput="filterSelect('teacherSelect', 'teacherSearch')" autocomplete="off" style="min-width:200px;">
+                        <select name="user_id" id="teacherSelect" class="form-select form-select-sm" size="5" style="min-width:200px;">
+                            <option value="">— Выберите преподавателя —</option>
+                            {% for t in all_teachers %}
+                            <option value="{{ t.id }}">{% if t.last_name %}{{ t.last_name }} {{ t.first_name }}{% else %}{{ t.get_username }}{% endif %} ({{ t.get_username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <select name="permission" class="form-select form-select-sm">
+                            {% for val, label in permission_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>Добавить</button>
+                    </div>
+                </form>
+            </div>
+
+            {# Групповые права #}
+            <div>
+                <h6 class="fw-semibold mb-2"><i class="bi bi-people-fill me-1"></i>Права групп преподавателей</h6>
+                {% if group_permissions %}
+                <div class="mb-2">
+                    {% for gp in group_permissions %}
+                    <span class="badge bg-info text-dark me-2 mb-1 p-2 d-inline-flex align-items-center">
+                        {{ gp.group.name }} — {{ gp.get_permission_display }}
+                        <form method="post" action="{% url 'course:group_permission_remove' course.id gp.id %}" class="d-inline ms-1"
+                              onsubmit="return confirm('Удалить права группы «{{ gp.group.name|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-close" style="font-size: 0.6rem;" title="Удалить"></button>
+                        </form>
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}<p class="text-muted small mb-2">Нет групповых прав.</p>{% endif %}
+                <form method="post" action="{% url 'course:group_permission_add' course.id %}" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <div class="col-auto">
+                        <input type="text" id="groupSearch" class="form-control form-control-sm mb-1" placeholder="Поиск по названию..."
+                               oninput="filterSelect('groupSelect', 'groupSearch')" autocomplete="off" style="min-width:200px;">
+                        <select name="group_id" id="groupSelect" class="form-select form-select-sm" size="5" style="min-width:200px;">
+                            <option value="">— Выберите группу —</option>
+                            {% for g in all_teacher_groups %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <select name="permission" class="form-select form-select-sm">
+                            {% for val, label in permission_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>Добавить</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -368,9 +459,18 @@
             <div class="mb-3"><label for="unitTitle" class="form-label">Название единицы</label><input type="text" class="form-control" id="unitTitle" name="title" maxlength="300" required></div>
             <div class="mb-3">
                 <label class="form-label">Тип единицы</label>
-                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeMethodical" value="methodical"><label class="form-check-label" for="unitTypeMethodical"><i class="bi bi-journal-text me-1"></i>Методическая</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeLecture" value="lecture" checked><label class="form-check-label" for="unitTypeLecture"><i class="bi bi-easel me-1"></i>Лекционная</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeControl" value="control"><label class="form-check-label" for="unitTypeControl"><i class="bi bi-check-circle me-1"></i>Контрольная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeMethodical" value="methodical"><label class="form-check-label" for="unitTypeMethodical"><i class="bi bi-journal-text me-1"></i>Методическая</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeLecture" value="lecture" checked><label class="form-check-label" for="unitTypeLecture"><i class="bi bi-easel me-1"></i>Лекционная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeControl" value="control"><label class="form-check-label" for="unitTypeControl"><i class="bi bi-check-circle me-1"></i>Контрольная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="content_type" id="unitTypeStepByStep" value="step_by_step"><label class="form-check-label" for="unitTypeStepByStep"><i class="bi bi-list-ol me-1"></i>Пошаговая</label></div>
+            </div>
+            <div class="mb-3" id="unitStepByStepBlock" style="display:none;">
+                <label for="unitStepByStepId" class="form-label">Существующая пошаговая единица</label>
+                <input type="text" id="stepByStepSearch" class="form-control form-control-sm mb-1" placeholder="Поиск..." autocomplete="off" oninput="filterSelect('unitStepByStepId', 'stepByStepSearch')">
+                <select class="form-select" id="unitStepByStepId" name="step_by_step_id" size="5">
+                    <option value="">— Выберите единицу —</option>
+                </select>
+                <small class="text-muted">Или оставьте пустым, чтобы создать новую</small>
             </div>
             <div class="mb-3" id="unitGradingBlock" style="display:none;">
                 <label class="form-label">Способ оценивания</label>
@@ -431,9 +531,10 @@
             <div class="mb-3"><label for="editUnitTitle" class="form-label">Название</label><input type="text" class="form-control" id="editUnitTitle" name="title" maxlength="300" required></div>
             <div class="mb-3">
                 <label class="form-label">Тип единицы</label>
-                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeMethodical" value="methodical"><label class="form-check-label" for="editUnitTypeMethodical">Методическая</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeLecture" value="lecture"><label class="form-check-label" for="editUnitTypeLecture">Лекционная</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeControl" value="control"><label class="form-check-label" for="editUnitTypeControl">Контрольная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeMethodical" value="methodical"><label class="form-check-label" for="editUnitTypeMethodical">Методическая</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeLecture" value="lecture"><label class="form-check-label" for="editUnitTypeLecture">Лекционная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeControl" value="control"><label class="form-check-label" for="editUnitTypeControl">Контрольная</label></div>
+                 <div class="form-check"><input class="form-check-input" type="radio" name="edit_content_type" id="editUnitTypeStepByStep" value="step_by_step"><label class="form-check-label" for="editUnitTypeStepByStep">Пошаговая</label></div>
             </div>
             <div class="mb-3" id="editUnitGradingBlock" style="display:none;">
                 <label class="form-label">Способ оценивания</label>
@@ -457,6 +558,16 @@
 
 {% block extra_js %}
 <script>
+    // Функция регистронезависимого поиска в select (как в faculty_form / department_form)
+    function filterSelect(selectId, searchId) {
+        var filter = document.getElementById(searchId).value.toLowerCase();
+        var select = document.getElementById(selectId);
+        for (var i = 0; i < select.options.length; i++) {
+            var text = select.options[i].text.toLowerCase();
+            select.options[i].style.display = (text.indexOf(filter) !== -1) ? '' : 'none';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Загрузка тестов преподавателя в select
         function loadMyTests(selectId, currentTestId) {
@@ -479,10 +590,41 @@
                 .catch(function() {});
         }
 
-        // Подгрузка при открытии модалки добавления (при выборе Контрольная)
+        // Загрузка пошаговых единиц в select
+        function loadStepByStepUnits(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '<option value="">— Выберите единицу —</option>';
+            fetch('{% url "course:step_by_step_list" %}?api=1')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.units) {
+                        data.units.forEach(function(u) {
+                            const opt = document.createElement('option');
+                            opt.value = u.id;
+                            opt.textContent = u.title + ' (шагов: ' + u.steps_count + ')';
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(function() {});
+        }
+
+        // Подгрузка при открытии модалки добавления (при выборе Контрольная или Пошаговая)
         document.querySelectorAll('input[name="content_type"]').forEach(function(r) {
             r.addEventListener('change', function() {
                 if (this.value === 'control') loadMyTests('unitTestId');
+                if (this.value === 'step_by_step') loadStepByStepUnits('unitStepByStepId');
+            });
+        });
+
+        // Показать/скрыть блок пошаговых единиц
+        const stepByStepBlock = document.getElementById('unitStepByStepBlock');
+        document.querySelectorAll('input[name="content_type"]').forEach(function(r) {
+            r.addEventListener('change', function() {
+                if (stepByStepBlock) {
+                    stepByStepBlock.style.display = (this.value === 'step_by_step') ? '' : 'none';
+                }
             });
         });
 

@@ -1,0 +1,586 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Редактирование шагов — {{ unit.title }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css?fv=2" rel="stylesheet">
+<style>
+    .note-modal-backdrop { z-index: 1050 !important; }
+    .note-modal { z-index: 1055 !important; }
+    .step-edit-toolbar { display: none; }
+    .step-edit-toolbar.active { display: flex; }
+    .step-content-display.hidden { display: none; }
+    .step-content-editor { display: none; }
+    .step-content-editor.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-list-ol me-2"></i>{{ unit.title }}
+            </h2>
+            <p class="text-muted mb-0">Редактирование шагов пошаговой единицы</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'course:course_edit' course.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-gear me-1"></i>Курс
+            </a>
+            <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>К списку
+            </a>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addStepModal">
+            <i class="bi bi-plus-lg me-1"></i>Добавить шаг
+        </button>
+    </div>
+
+    {% if steps %}
+        {% for step in steps %}
+        <div class="card shadow-sm border-0 mb-4" id="stepCard{{ step.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center py-3" style="background-color: rgba(180, 210, 250, 0.25);">
+                <div>
+                    <i class="bi bi-flag-fill me-2"></i>
+                    <span class="fw-bold">Шаг {{ step.order }}: <span class="step-title-display" id="stepTitleDisplay{{ step.id }}">{{ step.title }}</span></span>
+                    <input type="text" class="form-control form-control-sm d-inline-block step-title-input"
+                           id="stepTitleInput{{ step.id }}" value="{{ step.title }}"
+                           style="display:none; width: 250px;" maxlength="300">
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="step-edit-toolbar" id="stepEditToolbar{{ step.id }}">
+                        <button type="button" class="btn btn-success btn-sm btn-save-step"
+                                data-step-id="{{ step.id }}">
+                            <i class="bi bi-check-lg me-1"></i>Сохранить
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm btn-cancel-step"
+                                data-step-id="{{ step.id }}">
+                            <i class="bi bi-x-lg me-1"></i>Отмена
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm btn-edit-step"
+                            data-step-id="{{ step.id }}" id="btnEditStep{{ step.id }}">
+                        <i class="bi bi-pencil me-1"></i>Редактировать
+                    </button>
+                    <form method="post" action="{% url 'course:step_delete' step.id %}" class="d-inline"
+                          onsubmit="return confirm('Удалить шаг «{{ step.title|escapejs }}» и все его вопросы?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash me-1"></i>Удалить
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                {# Content display (preview) #}
+                <div class="step-content-display mb-3 p-3 rounded-3"
+                     id="stepDisplay{{ step.id }}"
+                     style="background-color: rgba(235, 242, 255, 0.3);">
+                    <small class="text-muted d-block mb-1"><i class="bi bi-file-text me-1"></i>Материал шага:</small>
+                    {% if step.content %}
+                    <div>{{ step.content|safe }}</div>
+                    {% else %}
+                    <div class="text-muted fst-italic">Нет материала</div>
+                    {% endif %}
+                </div>
+
+                {# Content editor (Summernote) #}
+                <div class="step-content-editor mb-3" id="stepEditor{{ step.id }}">
+                    <textarea class="form-control step-editor-textarea" id="stepEditorTA{{ step.id }}"
+                              data-original-content="{{ step.content|default:'' }}">{{ step.content|default:'' }}</textarea>
+                    <div class="alert alert-info py-2 mt-2 mb-0 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Картинки:</strong> перетащите (Drag & Drop) или вставьте из буфера (Ctrl+V).<br>
+                        <strong>Ссылки:</strong> нажмите кнопку <i class="bi bi-link-45deg"></i> на панели инструментов для вставки гиперссылки.
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-semibold mb-0"><i class="bi bi-question-circle me-1"></i>Вопросы шага</h6>
+                    <button type="button" class="btn btn-outline-success btn-sm btn-add-question"
+                            data-step-id="{{ step.id }}" data-step-title="{{ step.title|escapejs }}">
+                        <i class="bi bi-plus-lg me-1"></i>Добавить вопрос
+                    </button>
+                </div>
+
+                {% if step.questions.all %}
+                <div class="list-group list-group-flush ms-3">
+                    {% for question in step.questions.all %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start py-2">
+                        <div class="flex-grow-1">
+                            <span class="fw-semibold">Вопрос {{ question.order }}:</span>
+                            {{ question.text }}
+                            <div class="mt-1">
+                                {% for choice in question.choices.all %}
+                                <span class="badge {% if choice.is_correct %}bg-success{% else %}bg-secondary{% endif %} me-1 mb-1">
+                                    {% if choice.is_correct %}✓{% else %}✗{% endif %} {{ choice.text }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-1 ms-3 flex-shrink-0">
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-edit-question"
+                                    data-question-id="{{ question.id }}"
+                                    data-question-text="{{ question.text|escapejs }}"
+                                    data-choices='[
+                                        {% for choice in question.choices.all %}
+                                        {"text": "{{ choice.text|escapejs }}", "is_correct": {% if choice.is_correct %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}
+                                        {% endfor %}
+                                    ]'>
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="post" action="{% url 'course:step_question_delete' question.id %}" class="d-inline"
+                                  onsubmit="return confirm('Удалить этот вопрос?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small ms-3">Нет вопросов для этого шага.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="text-center py-4">
+        <i class="bi bi-flag display-1 text-muted mb-3"></i>
+        <h5 class="text-muted">Шаги ещё не добавлены</h5>
+        <p class="text-muted">Добавьте первый шаг, чтобы начать наполнение пошаговой единицы.</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ============ Модальные окна ============ #}
+
+{# Добавление шага #}
+<div class="modal fade" id="addStepModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-circle text-success me-2"></i>Добавить шаг</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" action="{% url 'course:step_add' unit.id %}">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Название шага</label><input type="text" class="form-control" name="title" maxlength="300" required></div>
+                <div class="mb-3"><label class="form-label">Материал шага</label><textarea class="form-control" name="content" rows="6" placeholder="Текст, излагаемый на данном шаге..."></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Добавить шаг</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+{# Добавление вопроса #}
+<div class="modal fade" id="addQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-circle text-success me-2"></i>Добавить вопрос</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="addQuestionForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <p class="text-muted mb-3">Добавление вопроса к шагу: <strong id="addQuestionStepTitle"></strong></p>
+                <div class="mb-3"><label class="form-label">Текст вопроса</label><textarea class="form-control" name="text" rows="3" required></textarea></div>
+                <div class="mb-3">
+                    <label class="form-label">Варианты ответов</label>
+                    <small class="text-muted d-block mb-2">Отметьте галочкой правильные варианты</small>
+                    <div id="addChoicesContainer">
+                        <div class="input-group mb-2 choice-row">
+                            <span class="input-group-text"><input type="checkbox" name="choice_correct[]" value="0" title="Правильный ответ"></span>
+                            <input type="text" class="form-control" name="choice_text[]" placeholder="Вариант ответа" maxlength="500">
+                        </div>
+                        <div class="input-group mb-2 choice-row">
+                            <span class="input-group-text"><input type="checkbox" name="choice_correct[]" value="1" title="Правильный ответ"></span>
+                            <input type="text" class="form-control" name="choice_text[]" placeholder="Вариант ответа" maxlength="500">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="addChoiceBtn">
+                        <i class="bi bi-plus me-1"></i>Добавить вариант
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Добавить вопрос</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+{# Редактирование вопроса #}
+<div class="modal fade" id="editQuestionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil-square text-primary me-2"></i>Редактировать вопрос</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post" id="editQuestionForm">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Текст вопроса</label><textarea class="form-control" id="editQuestionText" name="text" rows="3" required></textarea></div>
+                <div class="mb-3">
+                    <label class="form-label">Варианты ответов</label>
+                    <small class="text-muted d-block mb-2">Отметьте галочкой правильные варианты</small>
+                    <div id="editChoicesContainer"></div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="editAddChoiceBtn">
+                        <i class="bi bi-plus me-1"></i>Добавить вариант
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Сохранить</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+{# Модальное окно вставки ссылки #}
+<div class="modal fade" id="linkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Вставить ссылку</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-3">
+                <label for="linkText" class="form-label">Текст ссылки</label>
+                <input type="text" class="form-control" id="linkText" placeholder="Введите текст">
+            </div>
+            <div class="mb-3">
+                <label for="linkUrl" class="form-label">URL</label>
+                <input type="url" class="form-control" id="linkUrl" placeholder="https://example.com">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+            <button type="button" class="btn btn-primary" id="insertLinkBtn">
+                <i class="bi bi-check-lg me-1"></i>Вставить
+            </button>
+        </div>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/lang/summernote-ru-RU.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let addStepSummernoteInitialized = false;
+        // Карта активных редакторов: stepId -> true
+        let activeEditors = {};
+        // ID шага, который редактируется в данный момент (для вставки ссылки)
+        let currentEditingStepId = null;
+
+        function initAddSummernote() {
+            const textarea = document.querySelector('#addStepModal textarea[name="content"]');
+            if (textarea && !addStepSummernoteInitialized) {
+                $(textarea).summernote({
+                    height: 200,
+                    lang: 'ru-RU',
+                    toolbar: [
+                        ['style', ['bold', 'italic', 'underline', 'clear']],
+                        ['para', ['ul', 'ol', 'paragraph']],
+                        ['insert', ['link']],
+                        ['view', ['fullscreen', 'codeview']],
+                    ]
+                });
+                addStepSummernoteInitialized = true;
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Init add modal
+        document.getElementById('addStepModal').addEventListener('shown.bs.modal', initAddSummernote);
+
+        // ======== INLINE EDITING ========
+        document.querySelectorAll('.btn-edit-step').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const stepId = this.getAttribute('data-step-id');
+                const displayDiv = document.getElementById('stepDisplay' + stepId);
+                const editorDiv = document.getElementById('stepEditor' + stepId);
+                const textarea = document.getElementById('stepEditorTA' + stepId);
+                const editBtn = document.getElementById('btnEditStep' + stepId);
+                const toolbar = document.getElementById('stepEditToolbar' + stepId);
+                const titleDisplay = document.getElementById('stepTitleDisplay' + stepId);
+                const titleInput = document.getElementById('stepTitleInput' + stepId);
+
+                // Show editor, hide display
+                displayDiv.classList.add('hidden');
+                editorDiv.classList.add('active');
+                editBtn.style.display = 'none';
+                toolbar.classList.add('active');
+
+                // Show title input
+                titleDisplay.style.display = 'none';
+                titleInput.style.display = 'inline-block';
+
+                // Запоминаем, какой шаг редактируется
+                currentEditingStepId = stepId;
+
+                // Init Summernote with original content
+                const originalContent = textarea.getAttribute('data-original-content') || textarea.value;
+                $(textarea).summernote({
+                    height: 250,
+                    lang: 'ru-RU',
+                    dialogsInBody: true,
+                    toolbar: [
+                        ['style', ['bold', 'italic', 'underline', 'clear']],
+                        ['font', ['strikethrough', 'superscript', 'subscript']],
+                        ['para', ['ul', 'ol', 'paragraph']],
+                        ['insert', ['linkDialog']],
+                        ['table', ['table']],
+                        ['view', ['fullscreen', 'codeview']],
+                    ],
+                    buttons: {
+                        linkDialog: function(context) {
+                            var ui = $.summernote.ui;
+                            var button = ui.button({
+                                contents: '<i class="note-icon-link"></i>',
+                                tooltip: 'Вставить ссылку',
+                                click: function() {
+                                    var ta = document.getElementById('stepEditorTA' + currentEditingStepId);
+                                    if (ta) {
+                                        var sel = $(ta).summernote('createRange');
+                                        var selectedText = sel.toString() || '';
+                                        $('#linkUrl').val('');
+                                        $('#linkText').val(selectedText);
+                                        $('#linkModal').modal('show');
+                                        $('#linkUrl').focus();
+                                    }
+                                }
+                            });
+                            return button.render();
+                        }
+                    },
+                    callbacks: {
+                        onImageUpload: function(files) {
+                            var data = new FormData();
+                            for (var i = 0; i < files.length; i++) data.append('files', files[i]);
+                            data.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                            $.ajax({
+                                url: '/summernote/upload_attachment/',
+                                type: 'POST', data: data, cache: false,
+                                contentType: false, processData: false,
+                                success: function(response) {
+                                    // django_summernote возвращает JSON: {"files": [{"url": "...", ...}]}
+                                    // jQuery автоматически парсит ответ, т.к. сервер ставит content_type='application/json'
+                                    var files = response.files || (typeof response === 'string' ? JSON.parse(response).files : null);
+                                    if (files && Array.isArray(files)) {
+                                        files.forEach(function(item) {
+                                            $(textarea).summernote('insertImage', item.url);
+                                        });
+                                    }
+                                },
+                                error: function(jqXHR) {
+                                    var msg = 'Ошибка при загрузке изображения.\nСтатус: ' + jqXHR.status;
+                                    try {
+                                        var errResp = JSON.parse(jqXHR.responseText);
+                                        if (errResp.message) msg += '\n' + errResp.message;
+                                    } catch(e) {
+                                        msg += '\nОтвет: ' + jqXHR.responseText;
+                                    }
+                                    alert(msg);
+                                }
+                            });
+                        }
+                    }
+                });
+                $(textarea).summernote('code', originalContent);
+                activeEditors[stepId] = true;
+            });
+        });
+
+        // Cancel button
+        document.querySelectorAll('.btn-cancel-step').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const stepId = this.getAttribute('data-step-id');
+                exitEditMode(stepId);
+            });
+        });
+
+        function exitEditMode(stepId) {
+            const displayDiv = document.getElementById('stepDisplay' + stepId);
+            const editorDiv = document.getElementById('stepEditor' + stepId);
+            const textarea = document.getElementById('stepEditorTA' + stepId);
+            const editBtn = document.getElementById('btnEditStep' + stepId);
+            const toolbar = document.getElementById('stepEditToolbar' + stepId);
+            const titleDisplay = document.getElementById('stepTitleDisplay' + stepId);
+            const titleInput = document.getElementById('stepTitleInput' + stepId);
+
+            // Destroy Summernote
+            if ($(textarea).data('summernote')) {
+                $(textarea).summernote('destroy');
+            }
+
+            // Hide editor, show display
+            editorDiv.classList.remove('active');
+            displayDiv.classList.remove('hidden');
+            editBtn.style.display = '';
+            toolbar.classList.remove('active');
+
+            // Hide title input
+            titleInput.style.display = 'none';
+            titleDisplay.style.display = '';
+
+            delete activeEditors[stepId];
+            currentEditingStepId = null;
+        }
+
+        // ======== ВСТАВКА ССЫЛКИ ========
+        document.getElementById('insertLinkBtn').addEventListener('click', function() {
+            const linkText = document.getElementById('linkText').value.trim();
+            const linkUrl = document.getElementById('linkUrl').value.trim();
+
+            if (!linkUrl) {
+                alert('Пожалуйста, введите URL.');
+                return;
+            }
+
+            const displayText = linkText || linkUrl;
+
+            if (currentEditingStepId) {
+                const textarea = document.getElementById('stepEditorTA' + currentEditingStepId);
+                if (textarea && $(textarea).data('summernote')) {
+                    $(textarea).summernote('createLink', {
+                        text: displayText,
+                        url: linkUrl,
+                        isNewWindow: true
+                    });
+                }
+            }
+
+            // Закрываем модальное окно
+            var linkModalEl = document.getElementById('linkModal');
+            var linkModal = bootstrap.Modal.getInstance(linkModalEl);
+            linkModal.hide();
+        });
+
+        // Очистка полей при закрытии модального окна ссылки
+        document.getElementById('linkModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('linkText').value = '';
+            document.getElementById('linkUrl').value = '';
+        });
+
+        // Save button
+        document.querySelectorAll('.btn-save-step').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const stepId = this.getAttribute('data-step-id');
+                const textarea = document.getElementById('stepEditorTA' + stepId);
+                const displayDiv = document.getElementById('stepDisplay' + stepId);
+                const titleInput = document.getElementById('stepTitleInput' + stepId);
+                const titleDisplay = document.getElementById('stepTitleDisplay' + stepId);
+
+                const newTitle = titleInput.value.trim();
+                if (!newTitle) {
+                    alert('Название шага обязательно.');
+                    return;
+                }
+
+                const newContent = $(textarea).summernote('code');
+
+                // Сохраняем через POST
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{% url "course:step_edit" 0 %}'.replace('0', stepId);
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = getCookie('csrftoken');
+                form.appendChild(csrfInput);
+                const titleField = document.createElement('input');
+                titleField.type = 'hidden';
+                titleField.name = 'title';
+                titleField.value = newTitle;
+                form.appendChild(titleField);
+                const contentField = document.createElement('input');
+                contentField.type = 'hidden';
+                contentField.name = 'content';
+                contentField.value = newContent;
+                form.appendChild(contentField);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+
+        // ======== QUESTION MODALS ========
+        const addQuestionModal = document.getElementById('addQuestionModal');
+        if (addQuestionModal) {
+            const bsModal = new bootstrap.Modal(addQuestionModal);
+            let choiceCounter = 2;
+            document.querySelectorAll('.btn-add-question').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const stepId = this.getAttribute('data-step-id');
+                    document.getElementById('addQuestionForm').action = '{% url "course:step_question_add" 0 %}'.replace('0', stepId);
+                    document.getElementById('addQuestionStepTitle').textContent = '«' + this.getAttribute('data-step-title') + '»';
+                    document.getElementById('addQuestionForm').reset();
+                    const container = document.getElementById('addChoicesContainer');
+                    while (container.children.length > 2) container.removeChild(container.lastChild);
+                    choiceCounter = 2;
+                    bsModal.show();
+                });
+            });
+            document.getElementById('addChoiceBtn').addEventListener('click', function() {
+                const container = document.getElementById('addChoicesContainer');
+                const div = document.createElement('div');
+                div.className = 'input-group mb-2 choice-row';
+                div.innerHTML = '<span class="input-group-text"><input type="checkbox" name="choice_correct[]" value="' + choiceCounter + '" title="Правильный ответ"></span>' +
+                    '<input type="text" class="form-control" name="choice_text[]" placeholder="Вариант ответа" maxlength="500">';
+                container.appendChild(div);
+                choiceCounter++;
+            });
+        }
+
+        const editQuestionModal = document.getElementById('editQuestionModal');
+        if (editQuestionModal) {
+            const bsModal = new bootstrap.Modal(editQuestionModal);
+            let editChoiceCounter = 0;
+            document.querySelectorAll('.btn-edit-question').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const questionId = this.getAttribute('data-question-id');
+                    document.getElementById('editQuestionForm').action = '{% url "course:step_question_edit" 0 %}'.replace('0', questionId);
+                    document.getElementById('editQuestionText').value = this.getAttribute('data-question-text');
+                    const choicesData = JSON.parse(this.getAttribute('data-choices'));
+                    const container = document.getElementById('editChoicesContainer');
+                    container.innerHTML = '';
+                    editChoiceCounter = 0;
+                    choicesData.forEach(function(choice) {
+                        const div = document.createElement('div');
+                        div.className = 'input-group mb-2 choice-row';
+                        div.innerHTML = '<span class="input-group-text"><input type="checkbox" name="choice_correct[]" value="' + editChoiceCounter + '" title="Правильный ответ"' + (choice.is_correct ? ' checked' : '') + '></span>' +
+                            '<input type="text" class="form-control" name="choice_text[]" value="' + choice.text.replace(/"/g, '"') + '" maxlength="500">';
+                        container.appendChild(div);
+                        editChoiceCounter++;
+                    });
+                    bsModal.show();
+                });
+            });
+            document.getElementById('editAddChoiceBtn').addEventListener('click', function() {
+                const container = document.getElementById('editChoicesContainer');
+                const div = document.createElement('div');
+                div.className = 'input-group mb-2 choice-row';
+                div.innerHTML = '<span class="input-group-text"><input type="checkbox" name="choice_correct[]" value="' + editChoiceCounter + '" title="Правильный ответ"></span>' +
+                    '<input type="text" class="form-control" name="choice_text[]" placeholder="Вариант ответа" maxlength="500">';
+                container.appendChild(div);
+                editChoiceCounter++;
+            });
+        }
+    });
+</script>
+{% endblock %}

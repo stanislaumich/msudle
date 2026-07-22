@@ -69,12 +69,24 @@ class Course(models.Model):
         help_text='Для внутренних нужд, не отображается в интерфейсе',
     )
 
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name='Удалён (софт)',
+        help_text='Если включено, курс помечен как удалённый и не отображается в списках.',
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата удаления',
+    )
+
     class Meta:
         verbose_name = 'Курс'
         verbose_name_plural = 'Курсы'
 
     def __str__(self):
-        return self.short_name
+        prefix = '[Удалён] ' if self.is_deleted else ''
+        return f'{prefix}{self.short_name}'
 
 
 class CourseUserPermission(models.Model):
@@ -227,6 +239,7 @@ class LearningUnit(models.Model):
         ('methodical', 'Методическая единица'),
         ('lecture', 'Лекционная единица'),
         ('control', 'Контрольная единица'),
+        ('step_by_step', 'Пошаговая единица'),
     ]
 
     GRADING_TYPE_CHOICES = [
@@ -299,6 +312,16 @@ class LearningUnit(models.Model):
         default=10,
         verbose_name='Максимальный балл',
         help_text='Максимальный балл за эту контрольную единицу (по умолчанию 10).',
+    )
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name='Удалена (софт)',
+        help_text='Если включено, единица помечена как удалённая.',
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата удаления',
     )
 
     class Meta:
@@ -524,3 +547,102 @@ class AnnouncementDismiss(models.Model):
     def __str__(self):
         who = self.user.get_username() if self.user else (self.student.fio if self.student else '?')
         return f'{who} скрыл "{self.announcement.text[:40]}"'
+
+
+class Step(models.Model):
+    """Шаг пошаговой единицы обучения — содержит материал и вопросы для доступа к следующему шагу."""
+    learning_unit = models.ForeignKey(
+        LearningUnit,
+        on_delete=models.CASCADE,
+        related_name='steps',
+        verbose_name='Пошаговая единица',
+        limit_choices_to={'content_type': 'step_by_step'},
+    )
+    title = models.CharField(max_length=300, verbose_name='Название шага')
+    content = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Материал шага',
+        help_text='Текст/материал, излагаемый на данном шаге',
+    )
+    order = models.PositiveSmallIntegerField(default=0, verbose_name='Порядок')
+
+    class Meta:
+        verbose_name = 'Шаг'
+        verbose_name_plural = 'Шаги'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'Шаг {self.order}: {self.title}'
+
+
+class StepQuestion(models.Model):
+    """Вопрос шага — студент должен ответить правильно, чтобы перейти к следующему шагу."""
+    step = models.ForeignKey(
+        Step,
+        on_delete=models.CASCADE,
+        related_name='questions',
+        verbose_name='Шаг',
+    )
+    text = models.TextField(verbose_name='Текст вопроса')
+    order = models.PositiveSmallIntegerField(default=0, verbose_name='Порядок')
+
+    class Meta:
+        verbose_name = 'Вопрос шага'
+        verbose_name_plural = 'Вопросы шагов'
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'Вопрос {self.order}: {self.text[:80]}'
+
+
+class StepChoice(models.Model):
+    """Вариант ответа к вопросу шага."""
+    question = models.ForeignKey(
+        StepQuestion,
+        on_delete=models.CASCADE,
+        related_name='choices',
+        verbose_name='Вопрос шага',
+    )
+    text = models.CharField(max_length=500, verbose_name='Текст варианта')
+    is_correct = models.BooleanField(default=False, verbose_name='Правильный')
+
+    class Meta:
+        verbose_name = 'Вариант ответа шага'
+        verbose_name_plural = 'Варианты ответов шагов'
+        ordering = ['id']
+
+    def __str__(self):
+        prefix = '✓ ' if self.is_correct else '  '
+        return f'{prefix}{self.text[:80]}'
+
+
+class StepProgress(models.Model):
+    """Прогресс студента по шагам пошаговой единицы."""
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='step_progress',
+        verbose_name='Студент',
+    )
+    step = models.ForeignKey(
+        Step,
+        on_delete=models.CASCADE,
+        related_name='progress',
+        verbose_name='Шаг',
+    )
+    completed = models.BooleanField(default=False, verbose_name='Пройден')
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата прохождения',
+    )
+
+    class Meta:
+        verbose_name = 'Прогресс по шагу'
+        verbose_name_plural = 'Прогресс по шагам'
+        unique_together = ('student', 'step')
+
+    def __str__(self):
+        status = '✓' if self.completed else '✗'
+        return f'{self.student.login} — {self.step.title} {status}'

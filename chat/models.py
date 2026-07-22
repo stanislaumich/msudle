@@ -23,6 +23,16 @@ class ChatRoom(models.Model):
         auto_now_add=True,
         verbose_name='Дата создания',
     )
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name='Удалена (софт)',
+        help_text='Если включено, комната помечена как удалённая и не отображается в списке.',
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата удаления',
+    )
 
     class Meta:
         verbose_name = 'Комната чата'
@@ -31,7 +41,8 @@ class ChatRoom(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.course.short_name} — {self.student.fio}'
+        prefix = '[Удалён] ' if self.is_deleted else ''
+        return f'{prefix}{self.course.short_name} — {self.student.fio}'
 
     def unread_count_for(self, user):
         """Количество непрочитанных сообщений для пользователя."""

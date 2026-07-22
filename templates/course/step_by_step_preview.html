@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ unit.title }} — Предпросмотр{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-list-ol me-2"></i>{{ unit.title }}
+            </h2>
+            <p class="text-muted mb-0">Предпросмотр пошаговой единицы</p>
+        </div>
+        <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>К списку
+        </a>
+    </div>
+
+    {# Прогресс-бар #}
+    <div class="mb-4">
+        <div class="d-flex justify-content-between mb-1">
+            <small class="text-muted">Шаги</small>
+            <small class="text-muted">{{ current_index|add:1 }} / {{ steps|length }}</small>
+        </div>
+        <div class="progress" style="height: 8px;">
+            <div class="progress-bar bg-info" role="progressbar"
+                 style="width: {% widthratio current_index|add:1 steps|length 100 %}%;"
+                 aria-valuenow="{{ current_index|add:1 }}" aria-valuemin="1" aria-valuemax="{{ steps|length }}"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        {# Список шагов (сайдбар) #}
+        <div class="col-md-3 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header py-2" style="background-color: rgba(180, 210, 250, 0.2);">
+                    <span class="fw-semibold"><i class="bi bi-list-ol me-2"></i>Шаги</span>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for step in steps %}
+                    <a href="?step={{ forloop.counter0 }}"
+                       class="list-group-item list-group-item-action d-flex align-items-center py-2
+                              {% if forloop.counter0 == current_index %}active{% endif %}">
+                        <span class="fw-semibold">Шаг {{ step.order }}: {{ step.title }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# Контент шага #}
+        <div class="col-md-9">
+            <div class="card shadow-sm border-0">
+                <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.25);">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-flag-fill me-2"></i>Шаг {{ current_step.order }}: {{ current_step.title }}
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if current_step.content %}
+                    <div class="mb-4 p-3 rounded-3" style="background-color: rgba(235, 242, 255, 0.3);">
+                        {{ current_step.content|safe }}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-4">Материал шага отсутствует.</p>
+                    {% endif %}
+
+                    {# Вопросы (без проверки) #}
+                    {% with questions=current_step.questions.all %}
+                    {% if questions %}
+                    <div class="border-top pt-3 mb-3">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-question-circle me-1"></i>Контрольные вопросы:</h6>
+                        {% for question in questions %}
+                        <div class="mb-3 p-3 rounded-3" style="background-color: rgba(255, 245, 220, 0.2);">
+                            <p class="fw-semibold mb-2">{{ forloop.counter }}. {{ question.text }}</p>
+                            {% for choice in question.choices.all %}
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="pq_{{ question.id }}_{{ choice.id }}">
+                                <label class="form-check-label" for="pq_{{ question.id }}_{{ choice.id }}">
+                                    {{ choice.text }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2 check-question-btn"
+                                    data-question-id="{{ question.id }}">
+                                <i class="bi bi-check-circle me-1"></i>Проверить
+                            </button>
+                            <span class="ms-2 small check-result" id="result_{{ question.id }}"></span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+
+                    {# Навигация между шагами #}
+                    <div class="d-flex justify-content-between border-top pt-3 mt-3">
+                        <div>
+                            {% if prev_index is not None %}
+                            <a href="?step={{ prev_index }}" class="btn btn-outline-primary">
+                                <i class="bi bi-chevron-left me-1"></i>Предыдущий шаг
+                            </a>
+                            {% else %}
+                            <span class="btn btn-outline-secondary disabled">
+                                <i class="bi bi-chevron-left me-1"></i>Предыдущий шаг
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if next_index is not None %}
+                            <a href="?step={{ next_index }}" class="btn btn-outline-primary">
+                                Следующий шаг<i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                            {% else %}
+                            <button type="button" class="btn btn-success" id="finishPreviewBtn">
+                                <i class="bi bi-flag-checkered me-1"></i>Завершить
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Данные о правильных ответах (передаются из шаблона)
+    var correctChoices = {};
+    {% for question in current_step.questions.all %}
+    correctChoices[{{ question.id }}] = [
+        {% for choice in question.choices.all %}
+        {% if choice.is_correct %}{{ choice.id }}{% if not forloop.last %},{% endif %}{% endif %}
+        {% endfor %}
+    ];
+    {% endfor %}
+
+    // Кнопка «Завершить» на последнем шаге — требует хотя бы одного ответа на каждый вопрос
+    var finishBtn = document.getElementById('finishPreviewBtn');
+    if (finishBtn) {
+        finishBtn.addEventListener('click', function() {
+            // Собираем все уникальные ID вопросов из чекбоксов на странице
+            var questionIds = new Set();
+            document.querySelectorAll('[id^="pq_"]').forEach(function(cb) {
+                var parts = cb.id.split('_');
+                if (parts.length >= 2) questionIds.add(parts[1]);
+            });
+
+            if (questionIds.size === 0) {
+                // Нет вопросов на этом шаге — можно завершать
+                window.location.href = '{% url "course:step_by_step_list" %}';
+                return;
+            }
+
+            var allAnswered = true;
+            questionIds.forEach(function(qid) {
+                if (!document.querySelector('[id^="pq_' + qid + '_"]:checked')) {
+                    allAnswered = false;
+                }
+            });
+
+            if (!allAnswered) {
+                alert('Пожалуйста, ответьте на все вопросы перед завершением.');
+                return;
+            }
+            window.location.href = '{% url "course:step_by_step_list" %}';
+        });
+    }
+
+    document.querySelectorAll('.check-question-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var qid = this.getAttribute('data-question-id');
+            var correct = correctChoices[qid] || [];
+            var chosen = [];
+            document.querySelectorAll('[id^="pq_' + qid + '_"]').forEach(function(cb) {
+                if (cb.checked && cb.id && cb.id.startsWith('pq_' + qid + '_')) {
+                    var rawId = cb.id.replace('pq_' + qid + '_', '');
+                    chosen.push(parseInt(rawId));
+                }
+            });
+            // Сортируем для сравнения
+            correct.sort();
+            chosen.sort();
+            var resultEl = document.getElementById('result_' + qid);
+            if (JSON.stringify(correct) === JSON.stringify(chosen)) {
+                resultEl.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Правильно!</span>';
+            } else {
+                resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Неправильно. Попробуйте ещё раз.</span>';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'main.apps.MainConfig',
     'chat.apps.ChatConfig',
     'testing.apps.TestingConfig',
+    'django_summernote',
 ]
 
 AUTHENTICATION_BACKENDS = [

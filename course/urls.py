@@ -6,6 +6,9 @@ app_name = 'course'
 urlpatterns = [
     path('create/', views.course_create, name='course_create'),
     path('<int:course_id>/delete/', views.course_delete, name='course_delete'),
+    path('<int:course_id>/hard-delete/', views.course_hard_delete, name='course_hard_delete'),
+    path('archive/', views.course_archive, name='course_archive'),
+    path('<int:course_id>/restore/', views.course_restore, name='course_restore'),
     path('<int:course_id>/edit/', views.course_edit, name='course_edit'),
     path('section/<int:section_id>/delete/', views.section_delete, name='section_delete'),
     path('section/<int:section_id>/toggle-visibility/', views.section_toggle_visibility, name='section_toggle_visibility'),
@@ -32,4 +35,28 @@ urlpatterns = [
     path('announcement/<int:announcement_id>/dismiss/', views.announcement_dismiss, name='announcement_dismiss'),
     path('announcement/<int:announcement_id>/restore/', views.announcement_restore, name='announcement_restore'),
     path('<int:course_id>/student/<int:student_id>/unit/<int:unit_id>/check-no-submission/', views.check_answer_no_submission, name='check_answer_no_submission'),
+
+    # Пошаговые единицы
+    path('step-by-step/', views.step_by_step_list, name='step_by_step_list'),
+    path('step-by-step/create/', views.step_by_step_create, name='step_by_step_create'),
+    path('step-by-step/<int:unit_id>/wizard/', views.step_by_step_wizard, name='step_by_step_wizard'),
+    path('step-by-step/<int:unit_id>/delete/', views.step_by_step_soft_delete, name='step_by_step_soft_delete'),
+    path('step-by-step/archive/', views.step_by_step_archive, name='step_by_step_archive'),
+    path('step-by-step/<int:unit_id>/restore/', views.step_by_step_restore, name='step_by_step_restore'),
+    path('step-by-step/<int:unit_id>/hard-delete/', views.step_by_step_hard_delete, name='step_by_step_hard_delete'),
+    path('step-by-step/<int:unit_id>/edit/', views.step_by_step_edit, name='step_by_step_edit'),
+    path('step-by-step/<int:unit_id>/step/add/', views.step_add, name='step_add'),
+    path('step/<int:step_id>/edit/', views.step_edit, name='step_edit'),
+    path('step/<int:step_id>/delete/', views.step_delete, name='step_delete'),
+    path('step/<int:step_id>/question/add/', views.step_question_add, name='step_question_add'),
+    path('question/<int:question_id>/edit/', views.step_question_edit, name='step_question_edit'),
+    path('question/<int:question_id>/delete/', views.step_question_delete, name='step_question_delete'),
+    path('step-by-step/<int:unit_id>/take/', views.step_by_step_take, name='step_by_step_take'),
+    path('step-by-step/<int:unit_id>/preview/', views.step_by_step_preview, name='step_by_step_preview'),
+
+    # Права преподавателей
+    path('<int:course_id>/teacher-permission/add/', views.teacher_permission_add, name='teacher_permission_add'),
+    path('<int:course_id>/teacher-permission/<int:up_id>/remove/', views.teacher_permission_remove, name='teacher_permission_remove'),
+    path('<int:course_id>/group-permission/add/', views.group_permission_add, name='group_permission_add'),
+    path('<int:course_id>/group-permission/<int:gp_id>/remove/', views.group_permission_remove, name='group_permission_remove'),
 ]

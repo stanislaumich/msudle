@@ -1,46 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import User, Group
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from accounts.models import TeacherGroup
+from django.contrib.auth.models import User
 from .models import University, Faculty, Department
 
 
 def _is_teacher(user):
     """Проверка: пользователь — сотрудник (User), а не студент."""
     return not hasattr(user, 'fio')
-
-
-def _manage_dean_group(user, is_dean, new_is_dean):
-    """Управление группой «Декан» / «Деканы» при назначении/смене декана."""
-    dean_group, _ = Group.objects.get_or_create(name='Декан')
-    dean_teacher_group, _ = TeacherGroup.objects.get_or_create(name='Деканы')
-    if is_dean and not new_is_dean:
-        # Бывший декан — удаляем из групп, если больше не декан нигде
-        if not Faculty.objects.filter(dean=user).exists():
-            user.groups.remove(dean_group)
-            dean_teacher_group.users.remove(user)
-    if new_is_dean and not is_dean:
-        # Новый декан — добавляем в группы
-        user.groups.add(dean_group)
-        dean_teacher_group.users.add(user)
-
-
-def _manage_head_group(user, is_head, new_is_head):
-    """Управление группой «Заведующий кафедрой» при назначении/смене зав. кафедрой."""
-    head_group, _ = Group.objects.get_or_create(name='Заведующий кафедрой')
-    head_teacher_group, _ = TeacherGroup.objects.get_or_create(name='Заведующий кафедрой')
-    if is_head and not new_is_head:
-        # Бывший зав. кафедрой — удаляем из групп, если больше не зав. кафедрой нигде
-        if not Department.objects.filter(head=user).exists():
-            user.groups.remove(head_group)
-            head_teacher_group.users.remove(user)
-    if new_is_head and not is_head:
-        # Новый зав. кафедрой — добавляем в группы
-        user.groups.add(head_group)
-        head_teacher_group.users.add(user)
 
 
 @login_required
@@ -98,8 +65,6 @@ def faculty_create(request):
             group_numbers=group_numbers,
             dean=dean_user,
         )
-        if dean_user:
-            _manage_dean_group(dean_user, is_dean=False, new_is_dean=True)
         messages.success(request, f'Факультет «{full_name}» создан.')
         return redirect('structure:dashboard')
 
@@ -153,12 +118,6 @@ def faculty_edit(request, faculty_id):
         faculty.group_numbers = group_numbers
         faculty.dean = new_dean_user
         faculty.save()
-
-        # Управление группой «Декан»
-        if old_dean and old_dean != new_dean_user:
-            _manage_dean_group(old_dean, is_dean=True, new_is_dean=False)
-        if new_dean_user and new_dean_user != old_dean:
-            _manage_dean_group(new_dean_user, is_dean=False, new_is_dean=True)
 
         messages.success(request, f'Факультет «{full_name}» обновлён.')
         return redirect('structure:dashboard')
@@ -226,8 +185,6 @@ def department_create(request):
             identifier=identifier,
             head=head_user,
         )
-        if head_user:
-            _manage_head_group(head_user, is_head=False, new_is_head=True)
         messages.success(request, f'Кафедра «{full_name}» создана.')
         return redirect('structure:dashboard')
 
@@ -265,7 +222,6 @@ def department_edit(request, department_id):
 
         faculty = get_object_or_404(Faculty, id=faculty_id)
 
-        old_head = department.head
         new_head_user = None
         if head_id:
             try:
@@ -279,12 +235,6 @@ def department_edit(request, department_id):
         department.identifier = identifier
         department.head = new_head_user
         department.save()
-
-        # Управление группой «Заведующий кафедрой»
-        if old_head and old_head != new_head_user:
-            _manage_head_group(old_head, is_head=True, new_is_head=False)
-        if new_head_user and new_head_user != old_head:
-            _manage_head_group(new_head_user, is_head=False, new_is_head=True)
 
         messages.success(request, f'Кафедра «{full_name}» обновлена.')
         return redirect('structure:dashboard')

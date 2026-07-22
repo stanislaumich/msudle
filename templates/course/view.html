@@ -164,6 +164,10 @@
                                 </button>
                                 {% endif %}
                                 {% endwith %}
+                            {% elif is_student and unit.content_type == 'step_by_step' %}
+                            <a href="{% url 'course:step_by_step_take' unit.id %}" class="btn btn-primary btn-sm flex-shrink-0">
+                                <i class="bi bi-list-ol me-1"></i>Пройти
+                            </a>
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -229,6 +233,10 @@
                         </button>
                         {% endif %}
                         {% endwith %}
+                    {% elif is_student and unit.content_type == 'step_by_step' %}
+                    <a href="{% url 'course:step_by_step_take' unit.id %}" class="btn btn-primary btn-sm flex-shrink-0">
+                        <i class="bi bi-list-ol me-1"></i>Пройти
+                    </a>
                     {% endif %}
                 </div>
                 {% endfor %}

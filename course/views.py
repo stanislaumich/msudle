@@ -4,7 +4,7 @@ from django.db import models as django_models
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, User
 from django.views.decorators.http import require_POST
 from collections import OrderedDict
 
@@ -74,6 +74,13 @@ def course_edit(request, course_id):
     from students.models import StudentGroup
     all_groups = StudentGroup.objects.all().order_by('group_number')
 
+    # Права преподавателей
+    user_permissions = course.user_permissions.select_related('user').all()
+    group_permissions = course.group_permissions.select_related('group').all()
+    all_teachers = User.objects.filter(is_active=True, is_staff=True).order_by('last_name', 'first_name')
+    all_teacher_groups = Group.objects.all().order_by('name')
+    permission_choices = CourseUserPermission.PERMISSION_CHOICES
+
     context = {
         'course': course,
         'sections': sections,
@@ -81,6 +88,11 @@ def course_edit(request, course_id):
         'enrolled_groups': enrolled_groups,
         'enrolled_group_ids': enrolled_group_ids,
         'all_groups': all_groups,
+        'user_permissions': user_permissions,
+        'group_permissions': group_permissions,
+        'all_teachers': all_teachers,
+        'all_teacher_groups': all_teacher_groups,
+        'permission_choices': permission_choices,
     }
     return render(request, 'course/edit.html', context)
 
@@ -108,6 +120,737 @@ def section_delete(request, section_id):
             os.remove(unit.file.path)
     section.delete()
     messages.success(request, f'Раздел «{section.name}» успешно удалён.')
+    return redirect('course:course_edit', course_id=course.id)
+
+
+# ========== Пошаговые единицы ==========
+
+@login_required
+def step_by_step_list(request):
+    """Список всех пошаговых единиц, сгруппированных по курсам."""
+    user = request.user
+    if hasattr(user, 'fio'):
+        messages.error(request, 'Страница доступна только преподавателям.')
+        return redirect('dashboard')
+
+    # Собираем курсы, к которым у пользователя есть доступ
+    if user.is_staff:
+        courses = Course.objects.filter(is_deleted=False).prefetch_related(
+            'sections__topics__units',
+            'sections__direct_units',
+        )
+        all_courses_for_modal = courses
+    else:
+        allowed_course_ids = set()
+        perms = CourseUserPermission.objects.filter(user=user).values_list('course_id', flat=True)
+        allowed_course_ids.update(perms)
+        for gp in CourseGroupPermission.objects.filter(group__in=user.groups.all()):
+            allowed_course_ids.add(gp.course_id)
+        courses = Course.objects.filter(id__in=allowed_course_ids, is_deleted=False).prefetch_related(
+            'sections__topics__units',
+            'sections__direct_units',
+        )
+        all_courses_for_modal = courses
+
+    # Собираем все пошаговые единицы
+    step_units_by_course = []
+    for course in courses:
+        step_units = []
+        # Из тем
+        for section in course.sections.all():
+            for topic in section.topics.all():
+                for unit in topic.units.filter(content_type='step_by_step'):
+                    step_units.append({
+                        'unit': unit,
+                        'section_name': section.name,
+                        'topic_content': topic.content,
+                    })
+            # Прямые единицы раздела
+            for unit in section.direct_units.filter(content_type='step_by_step'):
+                step_units.append({
+                    'unit': unit,
+                    'section_name': section.name,
+                    'topic_content': None,
+                })
+        if step_units:
+            step_units_by_course.append({
+                'course': course,
+                'step_units': step_units,
+            })
+
+    # Собираем непривязанные пошаговые единицы (без курса/раздела)
+    unattached_units = list(
+        LearningUnit.objects.filter(
+            content_type='step_by_step',
+            is_deleted=False,
+            section__isnull=True,
+            topic__isnull=True,
+        ).order_by('-id')
+    )
+
+    if request.GET.get('api') == '1':
+        from django.http import JsonResponse
+        from .models import Step as StepModel
+        # API: вернуть все step_by_step единицы
+        api_units = list(
+            LearningUnit.objects.filter(
+                content_type='step_by_step',
+                is_deleted=False,
+            ).values('id', 'title').order_by('-id')
+        )
+        for u in api_units:
+            u['steps_count'] = StepModel.objects.filter(learning_unit_id=u['id']).count()
+        return JsonResponse({'units': list(api_units)})
+
+    return render(request, 'course/step_by_step_list.html', {
+        'step_units_by_course': step_units_by_course,
+        'all_courses_for_modal': all_courses_for_modal,
+        'unattached_units': unattached_units,
+    })
+
+
+@login_required
+@require_POST
+def step_by_step_soft_delete(request, unit_id):
+    """Софт-удаление пошаговой единицы."""
+    unit = get_object_or_404(LearningUnit, id=unit_id, content_type='step_by_step')
+    from django.utils import timezone
+    unit.is_deleted = True
+    unit.deleted_at = timezone.now()
+    unit.save()
+    messages.success(request, f'Пошаговая единица «{unit.title}» перемещена в архив.')
+    return redirect('course:step_by_step_list')
+
+
+@login_required
+def step_by_step_archive(request):
+    """Архив удалённых пошаговых единиц."""
+    user = request.user
+    if hasattr(user, 'fio'):
+        messages.error(request, 'Страница доступна только преподавателям.')
+        return redirect('dashboard')
+
+    deleted_units = LearningUnit.objects.filter(
+        content_type='step_by_step',
+        is_deleted=True,
+    ).order_by('-deleted_at')
+
+    return render(request, 'course/step_by_step_archive.html', {
+        'deleted_units': deleted_units,
+    })
+
+
+@login_required
+@require_POST
+def step_by_step_restore(request, unit_id):
+    """Восстановление удалённой пошаговой единицы."""
+    unit = get_object_or_404(LearningUnit, id=unit_id, content_type='step_by_step', is_deleted=True)
+    unit.is_deleted = False
+    unit.deleted_at = None
+    unit.save()
+    messages.success(request, f'Пошаговая единица «{unit.title}» восстановлена.')
+    return redirect('course:step_by_step_list')
+
+
+@login_required
+@require_POST
+def step_by_step_hard_delete(request, unit_id):
+    """Полное удаление пошаговой единицы (только администраторы)."""
+    if not request.user.is_staff:
+        messages.error(request, 'Только администраторы могут полностью удалять единицы.')
+        return redirect('course:step_by_step_archive')
+
+    unit = get_object_or_404(LearningUnit, id=unit_id, content_type='step_by_step', is_deleted=True)
+
+    # Удаляем файл если есть
+    if unit.file and os.path.isfile(unit.file.path):
+        os.remove(unit.file.path)
+
+    title = unit.title
+    unit.delete()
+    messages.success(request, f'Пошаговая единица «{title}» полностью удалена.')
+    return redirect('course:step_by_step_archive')
+
+@login_required
+def step_by_step_create(request):
+    """Создание новой пошаговой единицы — без привязки к курсу (будет позже)."""
+    user = request.user
+    if hasattr(user, 'fio'):
+        messages.error(request, 'Только преподаватели.')
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+
+        if not title:
+            messages.error(request, 'Название единицы обязательно.')
+            return redirect('course:step_by_step_list')
+
+        unit = LearningUnit.objects.create(
+            title=title,
+            content_type='step_by_step',
+            order=1,
+        )
+        messages.success(request, f'Пошаговая единица «{title}» создана. Назначьте курс и раздел позже в редакторе.')
+        return redirect('course:step_by_step_wizard', unit_id=unit.id)
+
+    return redirect('course:step_by_step_list')
+
+
+@login_required
+def step_by_step_wizard(request, unit_id):
+    """Пошаговый визард создания/редактирования шагов и вопросов."""
+    unit = get_object_or_404(LearningUnit.objects.prefetch_related('steps__questions__choices'), id=unit_id, content_type='step_by_step')
+
+    if unit.topic:
+        course = unit.topic.section.course
+    elif unit.section:
+        course = unit.section.course
+    else:
+        course = None
+
+    if course:
+        user_perm = _get_user_permission(request.user, course)
+        allowed_perms = {'edit', 'create_delete', 'full_access'}
+        if user_perm not in allowed_perms:
+            messages.error(request, 'У вас нет прав.')
+            return redirect('dashboard')
+
+    steps = unit.steps.all()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'add_step':
+            # Добавляем новый шаг
+            from .models import Step
+            step_title = request.POST.get('step_title', '').strip()
+            step_content = request.POST.get('step_content', '').strip()
+
+            if not step_title:
+                messages.error(request, 'Название шага обязательно.')
+                return redirect('course:step_by_step_wizard', unit_id=unit.id)
+
+            last_step = unit.steps.order_by('-order').first()
+            next_order = (last_step.order + 1) if last_step else 1
+
+            step = Step.objects.create(
+                learning_unit=unit,
+                title=step_title,
+                content=step_content if step_content else None,
+                order=next_order,
+            )
+
+            # Добавляем вопросы к этому шагу
+            from .models import StepQuestion, StepChoice
+            question_texts = request.POST.getlist('question_text[]', [])
+            for qi, qt in enumerate(question_texts):
+                qt = qt.strip()
+                if qt:
+                    last_q = step.questions.order_by('-order').first()
+                    q_order = (last_q.order + 1) if last_q else 1
+                    q = StepQuestion.objects.create(step=step, text=qt, order=q_order)
+
+                    # Варианты ответов для этого вопроса (по индексу вопроса)
+                    choice_texts = request.POST.getlist(f'choice_text_{qi}[]', [])
+                    correct_indices = set(int(i) for i in request.POST.getlist(f'choice_correct_{qi}[]', []) if i.isdigit())
+                    for idx, ct in enumerate(choice_texts):
+                        ct = ct.strip()
+                        if ct:
+                            StepChoice.objects.create(
+                                question=q, text=ct,
+                                is_correct=(idx in correct_indices),
+                            )
+
+            messages.success(request, f'Шаг «{step_title}» добавлен с вопросами.')
+
+        elif action == 'finish':
+            messages.success(request, f'Создание пошаговой единицы «{unit.title}» завершено.')
+            return redirect('course:step_by_step_list')
+
+        return redirect('course:step_by_step_wizard', unit_id=unit.id)
+
+    return render(request, 'course/step_by_step_wizard.html', {
+        'unit': unit,
+        'course': course,
+        'steps': steps,
+    })
+
+
+@login_required
+def step_by_step_preview(request, unit_id):
+    """Предпросмотр пошаговой единицы (без проверки ответов)."""
+    unit = get_object_or_404(
+        LearningUnit.objects.prefetch_related('steps__questions__choices'),
+        id=unit_id, content_type='step_by_step', is_deleted=False
+    )
+
+    steps = list(unit.steps.order_by('order'))
+    if not steps:
+        messages.error(request, 'В пошаговой единице нет шагов.')
+        return redirect('course:step_by_step_list')
+
+    # Текущий шаг по GET-параметру, по умолчанию первый
+    try:
+        current_index = int(request.GET.get('step', 0))
+    except (ValueError, TypeError):
+        current_index = 0
+
+    if current_index < 0:
+        current_index = 0
+    if current_index >= len(steps):
+        current_index = len(steps) - 1
+
+    current_step = steps[current_index]
+    prev_index = current_index - 1 if current_index > 0 else None
+    next_index = current_index + 1 if current_index < len(steps) - 1 else None
+
+    return render(request, 'course/step_by_step_preview.html', {
+        'unit': unit,
+        'current_step': current_step,
+        'steps': steps,
+        'current_index': current_index,
+        'prev_index': prev_index,
+        'next_index': next_index,
+    })
+
+
+def step_by_step_edit(request, unit_id):
+    """Редактирование шагов пошаговой единицы."""
+    unit = get_object_or_404(LearningUnit.objects.prefetch_related('steps__questions__choices'), id=unit_id, content_type='step_by_step')
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав на редактирование пошаговой единицы.')
+        return redirect('dashboard')
+
+    steps = unit.steps.all()
+
+    context = {
+        'unit': unit,
+        'course': course,
+        'steps': steps,
+    }
+    return render(request, 'course/step_by_step_edit.html', context)
+
+
+@login_required
+@require_POST
+def step_add(request, unit_id):
+    """Добавление шага к пошаговой единице."""
+    unit = get_object_or_404(LearningUnit, id=unit_id, content_type='step_by_step')
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    title = request.POST.get('title', '').strip()
+    content = request.POST.get('content', '').strip()
+
+    if not title:
+        messages.error(request, 'Название шага обязательно.')
+        return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+    from .models import Step
+    last_step = unit.steps.order_by('-order').first()
+    next_order = (last_step.order + 1) if last_step else 1
+
+    Step.objects.create(
+        learning_unit=unit,
+        title=title,
+        content=content if content else None,
+        order=next_order,
+    )
+    messages.success(request, f'Шаг «{title}» добавлен.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+@require_POST
+def step_edit(request, step_id):
+    """Редактирование шага."""
+    from .models import Step
+    step = get_object_or_404(Step.objects.select_related('learning_unit'), id=step_id)
+    unit = step.learning_unit
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    title = request.POST.get('title', '').strip()
+    content = request.POST.get('content', '').strip()
+
+    if not title:
+        messages.error(request, 'Название шага обязательно.')
+        return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+    step.title = title
+    step.content = content if content else None
+    step.save()
+    messages.success(request, f'Шаг «{title}» обновлён.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+@require_POST
+def step_delete(request, step_id):
+    """Удаление шага."""
+    from .models import Step
+    step = get_object_or_404(Step.objects.select_related('learning_unit'), id=step_id)
+    unit = step.learning_unit
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    title = step.title
+    step.delete()
+    messages.success(request, f'Шаг «{title}» удалён.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+@require_POST
+def step_question_add(request, step_id):
+    """Добавление вопроса к шагу."""
+    from .models import Step, StepQuestion
+    step = get_object_or_404(Step.objects.select_related('learning_unit'), id=step_id)
+    unit = step.learning_unit
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    text = request.POST.get('text', '').strip()
+    if not text:
+        messages.error(request, 'Текст вопроса обязателен.')
+        return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+    last_q = step.questions.order_by('-order').first()
+    next_order = (last_q.order + 1) if last_q else 1
+
+    question = StepQuestion.objects.create(
+        step=step,
+        text=text,
+        order=next_order,
+    )
+
+    # Добавляем варианты ответов
+    from .models import StepChoice
+    choice_texts = request.POST.getlist('choice_text[]', [])
+    correct_indices = set(int(i) for i in request.POST.getlist('choice_correct[]', []) if i.isdigit())
+
+    for idx, ct in enumerate(choice_texts):
+        ct = ct.strip()
+        if ct:
+            StepChoice.objects.create(
+                question=question,
+                text=ct,
+                is_correct=(idx in correct_indices),
+            )
+
+    messages.success(request, 'Вопрос добавлен.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+@require_POST
+def step_question_edit(request, question_id):
+    """Редактирование вопроса и его вариантов ответа."""
+    from .models import StepQuestion, StepChoice
+    question = get_object_or_404(
+        StepQuestion.objects.select_related('step__learning_unit'), id=question_id
+    )
+    step = question.step
+    unit = step.learning_unit
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    text = request.POST.get('text', '').strip()
+    if not text:
+        messages.error(request, 'Текст вопроса обязателен.')
+        return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+    question.text = text
+    question.save()
+
+    # Удаляем старые варианты и создаём новые
+    question.choices.all().delete()
+
+    choice_texts = request.POST.getlist('choice_text[]', [])
+    correct_indices = set(int(i) for i in request.POST.getlist('choice_correct[]', []) if i.isdigit())
+
+    for idx, ct in enumerate(choice_texts):
+        ct = ct.strip()
+        if ct:
+            StepChoice.objects.create(
+                question=question,
+                text=ct,
+                is_correct=(idx in correct_indices),
+            )
+
+    messages.success(request, 'Вопрос обновлён.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+@require_POST
+def step_question_delete(request, question_id):
+    """Удаление вопроса."""
+    from .models import StepQuestion
+    question = get_object_or_404(
+        StepQuestion.objects.select_related('step__learning_unit'), id=question_id
+    )
+    unit = question.step.learning_unit
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms:
+        messages.error(request, 'У вас нет прав.')
+        return redirect('dashboard')
+
+    question.delete()
+    messages.success(request, 'Вопрос удалён.')
+    return redirect('course:step_by_step_edit', unit_id=unit.id)
+
+
+@login_required
+def step_by_step_take(request, unit_id):
+    """Прохождение пошаговой единицы студентом."""
+    user = request.user
+    if not hasattr(user, 'fio'):
+        messages.error(request, 'Только студенты могут проходить пошаговые единицы.')
+        return redirect('dashboard')
+
+    unit = get_object_or_404(
+        LearningUnit.objects.prefetch_related('steps__questions__choices'),
+        id=unit_id, content_type='step_by_step'
+    )
+
+    if unit.topic:
+        course = unit.topic.section.course
+    else:
+        course = unit.section.course
+
+    if not CourseGroupStudent.objects.filter(course=course, group_id=user.group_id).exists():
+        messages.error(request, 'Вы не подписаны на этот курс.')
+        return redirect('index')
+
+    steps = list(unit.steps.order_by('order'))
+    if not steps:
+        messages.error(request, 'В пошаговой единице нет шагов.')
+        return redirect('course:course_view', course_id=course.id)
+
+    # Определяем текущий шаг (первый непройденный)
+    from .models import StepProgress
+    completed_step_ids = set(
+        StepProgress.objects.filter(student=user, step__learning_unit=unit, completed=True)
+        .values_list('step_id', flat=True)
+    )
+
+    current_step = None
+    for step in steps:
+        if step.id not in completed_step_ids:
+            current_step = step
+            break
+
+    if not current_step:
+        # Все шаги пройдены
+        return render(request, 'course/step_by_step_take.html', {
+            'unit': unit,
+            'course': course,
+            'all_completed': True,
+        })
+
+    if request.method == 'POST':
+        # Проверяем ответы на вопросы текущего шага
+        questions = list(current_step.questions.prefetch_related('choices').all())
+        all_correct = True
+        for q in questions:
+            choice_ids = request.POST.getlist(f'q_{q.id}')
+            chosen_ids = set(int(c) for c in choice_ids if c.isdigit())
+            correct_ids = set(q.choices.filter(is_correct=True).values_list('id', flat=True))
+            if chosen_ids != correct_ids:
+                all_correct = False
+                break
+
+        if all_correct:
+            # Отмечаем шаг как пройденный
+            from django.utils import timezone
+            StepProgress.objects.update_or_create(
+                student=user,
+                step=current_step,
+                defaults={'completed': True, 'completed_at': timezone.now()},
+            )
+            messages.success(request, f'Шаг «{current_step.title}» пройден!')
+            return redirect('course:step_by_step_take', unit_id=unit.id)
+        else:
+            messages.error(request, 'Не все вопросы отвечены правильно. Попробуйте ещё раз.')
+            return redirect('course:step_by_step_take', unit_id=unit.id)
+
+    # Отображаем текущий шаг с вопросами
+    questions = list(current_step.questions.prefetch_related('choices').all())
+    return render(request, 'course/step_by_step_take.html', {
+        'unit': unit,
+        'course': course,
+        'current_step': current_step,
+        'steps': steps,
+        'completed_step_ids': completed_step_ids,
+        'questions': questions,
+        'is_last_step': (current_step.id == steps[-1].id),
+    })
+
+
+# --- Права преподавателей ---
+
+@login_required
+@require_POST
+def teacher_permission_add(request, course_id):
+    """Добавить право преподавателю на курс."""
+    course = get_object_or_404(Course, id=course_id)
+    user_perm = _get_user_permission(request.user, course)
+    if user_perm not in {'full_access'} and not request.user.is_staff:
+        messages.error(request, 'Только владелец курса может управлять правами.')
+        return redirect('dashboard')
+
+    user_id = request.POST.get('user_id', '')
+    permission = request.POST.get('permission', 'view')
+    if not user_id:
+        messages.error(request, 'Выберите преподавателя.')
+        return redirect('course:course_edit', course_id=course.id)
+    if permission not in dict(CourseUserPermission.PERMISSION_CHOICES):
+        messages.error(request, 'Недопустимый уровень прав.')
+        return redirect('course:course_edit', course_id=course.id)
+
+    try:
+        user = User.objects.get(id=int(user_id), is_active=True, is_staff=True)
+    except (User.DoesNotExist, ValueError, TypeError):
+        messages.error(request, 'Преподаватель не найден.')
+        return redirect('course:course_edit', course_id=course.id)
+
+    CourseUserPermission.objects.update_or_create(
+        course=course,
+        user=user,
+        defaults={'permission': permission},
+    )
+    name = user.get_full_name() or user.get_username()
+    messages.success(request, f'Права «{name}» обновлены ({permission}).')
+    return redirect('course:course_edit', course_id=course.id)
+
+
+@login_required
+@require_POST
+def teacher_permission_remove(request, course_id, up_id):
+    """Удалить право преподавателя на курс."""
+    course = get_object_or_404(Course, id=course_id)
+    user_perm = _get_user_permission(request.user, course)
+    if user_perm not in {'full_access'} and not request.user.is_staff:
+        messages.error(request, 'Только владелец курса может управлять правами.')
+        return redirect('dashboard')
+
+    up = get_object_or_404(CourseUserPermission, id=up_id, course=course)
+    name = up.user.get_full_name() or up.user.get_username()
+    up.delete()
+    messages.success(request, f'Права «{name}» удалены.')
+    return redirect('course:course_edit', course_id=course.id)
+
+
+@login_required
+@require_POST
+def group_permission_add(request, course_id):
+    """Добавить право группе преподавателей на курс."""
+    course = get_object_or_404(Course, id=course_id)
+    user_perm = _get_user_permission(request.user, course)
+    if user_perm not in {'full_access'} and not request.user.is_staff:
+        messages.error(request, 'Только владелец курса может управлять правами.')
+        return redirect('dashboard')
+
+    group_id = request.POST.get('group_id', '')
+    permission = request.POST.get('permission', 'view')
+    if not group_id:
+        messages.error(request, 'Выберите группу.')
+        return redirect('course:course_edit', course_id=course.id)
+    if permission not in dict(CourseGroupPermission.PERMISSION_CHOICES):
+        messages.error(request, 'Недопустимый уровень прав.')
+        return redirect('course:course_edit', course_id=course.id)
+
+    try:
+        group = Group.objects.get(id=int(group_id))
+    except (Group.DoesNotExist, ValueError, TypeError):
+        messages.error(request, 'Группа не найдена.')
+        return redirect('course:course_edit', course_id=course.id)
+
+    CourseGroupPermission.objects.update_or_create(
+        course=course,
+        group=group,
+        defaults={'permission': permission},
+    )
+    messages.success(request, f'Права группы «{group.name}» обновлены ({permission}).')
+    return redirect('course:course_edit', course_id=course.id)
+
+
+@login_required
+@require_POST
+def group_permission_remove(request, course_id, gp_id):
+    """Удалить право группы преподавателей на курс."""
+    course = get_object_or_404(Course, id=course_id)
+    user_perm = _get_user_permission(request.user, course)
+    if user_perm not in {'full_access'} and not request.user.is_staff:
+        messages.error(request, 'Только владелец курса может управлять правами.')
+        return redirect('dashboard')
+
+    gp = get_object_or_404(CourseGroupPermission, id=gp_id, course=course)
+    name = gp.group.name
+    gp.delete()
+    messages.success(request, f'Права группы «{name}» удалены.')
     return redirect('course:course_edit', course_id=course.id)
 
 
@@ -164,34 +907,41 @@ def course_create(request):
 
 
 def _assign_default_permissions(creator, course):
-    """При создании курса: создателю — полный доступ, декану — просмотр, зав. кафедрой — просмотр."""
+    """При создании курса:
+    - создателю — полный доступ
+    - декану соответствующего факультета — просмотр
+    - зав. кафедрой соответствующей кафедры — просмотр
+    - группы «УМО» и «Ректорат» — просмотр (всем участникам группы)
+    """
     # Создатель — полный доступ
     CourseUserPermission.objects.get_or_create(
         course=course,
         user=creator,
         defaults={'permission': 'full_access'},
     )
-    # Группа «Декан» — просмотр
     try:
-        dean_group = Group.objects.get(name='Декан')
-        CourseGroupPermission.objects.get_or_create(
-            course=course,
-            group=dean_group,
-            defaults={'permission': 'view'},
-        )
-    except Group.DoesNotExist:
-        pass
-    # Группа «Заведующий кафедрой» — просмотр
-    try:
-        head_group = Group.objects.get(name='Заведующий кафедрой')
-        CourseGroupPermission.objects.get_or_create(
-            course=course,
-            group=head_group,
-            defaults={'permission': 'view'},
-        )
-    except Group.DoesNotExist:
-        pass
-    # Группы УМО и Ректорат — просмотр
+        department = course.subject.department
+    except Exception:
+        department = None
+
+    # Декан факультета — персональное право просмотра
+    if department:
+        faculty = department.faculty
+        if faculty and faculty.dean:
+            CourseUserPermission.objects.get_or_create(
+                course=course,
+                user=faculty.dean,
+                defaults={'permission': 'view'},
+            )
+        # Заведующий кафедрой — персональное право просмотра
+        if department.head:
+            CourseUserPermission.objects.get_or_create(
+                course=course,
+                user=department.head,
+                defaults={'permission': 'view'},
+            )
+
+    # Группы УМО и Ректорат — просмотр (всем участникам групп)
     for group_name in ('УМО', 'Ректорат'):
         try:
             group = Group.objects.get(name=group_name)
@@ -205,22 +955,46 @@ def _assign_default_permissions(creator, course):
 
 
 def _assign_default_sections(course):
-    """Добавляет разделы по умолчанию к новому курсу."""
+    """Добавляет разделы по умолчанию к новому курсу.
+    «Пояснительный» и «Преподавательский» — скрыты от студентов."""
+    HIDDEN = {'Пояснительный', 'Преподавательский'}
     for i, name in enumerate(CourseSection.DEFAULT_SECTIONS, start=1):
+        defaults = {'order': i}
+        if name in HIDDEN:
+            defaults['visible'] = False
         CourseSection.objects.get_or_create(
             course=course,
             name=name,
-            defaults={'order': i},
+            defaults=defaults,
         )
 
 
 @login_required
 @require_POST
 def course_delete(request, course_id):
-    """Удаление курса."""
-    # Только администраторы (is_staff) могут удалять курсы
+    """Софт-удаление курса."""
+    user_perm = None
+    course = get_object_or_404(Course, id=course_id)
+    if not course.is_deleted:
+        user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'create_delete', 'full_access'}
+    if user_perm not in allowed_perms and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав на удаление курса.')
+        return redirect('dashboard')
+
+    from django.utils import timezone
+    course.is_deleted = True
+    course.deleted_at = timezone.now()
+    course.save()
+    messages.success(request, f'Курс «{course.short_name}» перемещён в архив.')
+    return redirect('dashboard')
+
+@login_required
+@require_POST
+def course_hard_delete(request, course_id):
+    """Полное удаление курса (только администраторы)."""
     if not request.user.is_staff:
-        messages.error(request, 'Только администраторы могут удалять курсы.')
+        messages.error(request, 'Только администраторы могут полностью удалять курсы.')
         return redirect('dashboard')
 
     course = get_object_or_404(Course, id=course_id)
@@ -244,7 +1018,49 @@ def course_delete(request, course_id):
 
     course_name = course.short_name
     course.delete()
-    messages.success(request, f'Курс «{course_name}» успешно удалён.')
+    messages.success(request, f'Курс «{course_name}» полностью удалён.')
+    return redirect('dashboard')
+
+
+@login_required
+def course_archive(request):
+    """Архив удалённых курсов."""
+    user = request.user
+    if hasattr(user, 'fio'):
+        messages.error(request, 'Страница доступна только преподавателям.')
+        return redirect('dashboard')
+
+    if user.is_staff:
+        deleted_courses = Course.objects.filter(is_deleted=True).select_related('subject__department').order_by('-deleted_at')
+    else:
+        allowed_ids = set()
+        perms = CourseUserPermission.objects.filter(user=user).values_list('course_id', flat=True)
+        allowed_ids.update(perms)
+        for gp in CourseGroupPermission.objects.filter(group__in=user.groups.all()):
+            allowed_ids.add(gp.course_id)
+        deleted_courses = Course.objects.filter(id__in=allowed_ids, is_deleted=True).select_related('subject__department').order_by('-deleted_at')
+
+    return render(request, 'course/archive.html', {
+        'deleted_courses': deleted_courses,
+    })
+
+
+@login_required
+@require_POST
+def course_restore(request, course_id):
+    """Восстановление курса из архива."""
+    course = get_object_or_404(Course, id=course_id, is_deleted=True)
+
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'create_delete', 'full_access'}
+    if user_perm not in allowed_perms and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав на восстановление курса.')
+        return redirect('course:course_archive')
+
+    course.is_deleted = False
+    course.deleted_at = None
+    course.save()
+    messages.success(request, f'Курс «{course.short_name}» восстановлен.')
     return redirect('dashboard')
 
 
@@ -1017,7 +1833,7 @@ def unit_edit(request, unit_id):
         new_content_type = request.POST.get('content_type') or request.POST.get('edit_content_type', unit.content_type)
         if new_content_type in dict(LearningUnit.CONTENT_TYPE_CHOICES):
             unit.content_type = new_content_type
-            if new_content_type != 'control':
+            if new_content_type not in ('control', 'step_by_step'):
                 unit.grading_type = None
             else:
                 grading = request.POST.get('grading_type', '') or request.POST.get('edit_grading_type', '')
@@ -1105,6 +1921,24 @@ def _add_unit(request, course, topic=None, section=None):
     content_type = request.POST.get('content_type', 'lecture')
     if content_type not in dict(LearningUnit.CONTENT_TYPE_CHOICES):
         content_type = 'lecture'
+
+    # Если пошаговая — проверяем, не выбрана ли существующая единица
+    step_by_step_id = request.POST.get('step_by_step_id', '').strip()
+    if content_type == 'step_by_step' and step_by_step_id:
+        try:
+            existing_unit = LearningUnit.objects.get(
+                id=int(step_by_step_id),
+                content_type='step_by_step',
+                is_deleted=False,
+            )
+            # Привязываем существующую единицу к разделу/теме
+            existing_unit.topic = topic
+            existing_unit.section = section
+            existing_unit.save()
+            messages.success(request, f'Пошаговая единица «{existing_unit.title}» прикреплена.')
+            return redirect('course:course_edit', course_id=course.id)
+        except (LearningUnit.DoesNotExist, ValueError, TypeError):
+            pass  # продолжаем обычное создание
 
     # grading_type — только для контрольных
     grading_type = None

@@ -34,6 +34,7 @@ urlpatterns = [
     path('subject/', include('subject.urls')),
     path('structure/', include('structure.urls')),
     path('umo/', include('umo.urls')),
+    path('summernote/', include('django_summernote.urls')),
 ]
 
 if settings.DEBUG:
