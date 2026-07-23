@@ -9,6 +9,7 @@ urlpatterns = [
     path('<int:course_id>/hard-delete/', views.course_hard_delete, name='course_hard_delete'),
     path('archive/', views.course_archive, name='course_archive'),
     path('<int:course_id>/restore/', views.course_restore, name='course_restore'),
+    path('<int:course_id>/clone/', views.course_clone, name='course_clone'),
     path('<int:course_id>/edit/', views.course_edit, name='course_edit'),
     path('section/<int:section_id>/delete/', views.section_delete, name='section_delete'),
     path('section/<int:section_id>/toggle-visibility/', views.section_toggle_visibility, name='section_toggle_visibility'),

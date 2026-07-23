@@ -1255,6 +1255,108 @@ def course_hard_delete(request, course_id):
     return redirect('dashboard')
 
 
+
+@login_required
+@require_POST
+def course_clone(request, course_id):
+    """Клонирование курса со всем содержимым и правами."""
+    course = get_object_or_404(Course, id=course_id)
+
+    # Проверяем права: клонировать могут те же, кто редактирует
+    user_perm = _get_user_permission(request.user, course)
+    allowed_perms = {'edit', 'create_delete', 'full_access'}
+    if user_perm not in allowed_perms and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав на клонирование курса.')
+        return redirect('dashboard')
+
+    # Генерируем уникальное имя/identifier
+    new_full_name = f'КЛОН {course.full_name}'
+    new_short_name = f'КЛОН {course.short_name}'
+    new_identifier = (f'clone_{course.identifier}' if course.identifier else f'clone_{course.id}')
+
+    # Проверяем уникальность и если занято — добавляем суффикс
+    base_identifier = new_identifier
+    counter = 1
+    while Course.objects.filter(identifier=new_identifier).exists():
+        new_identifier = f'{base_identifier}_{counter}'
+        new_short_name = f'КЛОН {course.short_name} ({counter})'
+        new_full_name = f'КЛОН {course.full_name} ({counter})'
+        counter += 1
+
+    # Создаём новый курс
+    new_course = Course.objects.create(
+        subject=course.subject,
+        full_name=new_full_name,
+        short_name=new_short_name,
+        identifier=new_identifier,
+    )
+
+    # Клонируем разделы с темами и единицами
+    for section in course.sections.all():
+        new_section = CourseSection.objects.create(
+            course=new_course,
+            name=section.name,
+            order=section.order,
+            visible=section.visible,
+        )
+        for topic in section.topics.all():
+            new_topic = CourseTopic.objects.create(
+                section=new_section,
+                entity_title=topic.entity_title,
+                content=topic.content,
+                order=topic.order,
+                visible=topic.visible,
+            )
+            for unit in topic.units.all():
+                LearningUnit.objects.create(
+                    topic=new_topic,
+                    section=None,
+                    title=unit.title,
+                    content_type=unit.content_type,
+                    file=unit.file,
+                    link=unit.link,
+                    order=unit.order,
+                    visible=unit.visible,
+                    grading_type=unit.grading_type,
+                    max_score=unit.max_score,
+                    test=unit.test,
+                )
+        for unit in section.direct_units.all():
+            LearningUnit.objects.create(
+                section=new_section,
+                topic=None,
+                title=unit.title,
+                content_type=unit.content_type,
+                file=unit.file,
+                link=unit.link,
+                order=unit.order,
+                visible=unit.visible,
+                grading_type=unit.grading_type,
+                max_score=unit.max_score,
+                test=unit.test,
+            )
+
+    # Клонируем права
+    for up in course.user_permissions.all():
+        CourseUserPermission.objects.create(
+            course=new_course,
+            user=up.user,
+            permission=up.permission,
+        )
+    for gp in course.group_permissions.all():
+        CourseGroupPermission.objects.create(
+            course=new_course,
+            group=gp.group,
+            permission=gp.permission,
+        )
+
+    # Группы студентов НЕ клонируем — у клона будут другие группы
+
+    messages.info(request, f'Клонирование завершено: разделов — {course.sections.count()}, тем — {sum(s.topics.count() for s in course.sections.all())}, единиц — {sum(s.topics.aggregate(c=models.Count("units"))["c"] or 0 for s in course.sections.all())}')
+    messages.success(request, f'Курс «{new_short_name}» создан как клон «{course.short_name}».')
+    return redirect('course:course_edit', course_id=new_course.id)
+
+
 @login_required
 def course_archive(request):
     """Архив удалённых курсов."""

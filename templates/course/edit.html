@@ -15,6 +15,13 @@
         </div>
         <div class="d-flex gap-2">
             <input type="hidden" id="apiMyTestsUrl" value="{% url 'testing:api_my_tests' %}">
+            <form method="post" action="{% url 'course:course_clone' course.id %}" class="d-inline"
+                  onsubmit="return confirm('Клонировать курс «{{ course.full_name|escapejs }}»? Будет создана полная копия.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" title="Клонировать курс">
+                    <i class="bi bi-copy me-1"></i>Клонировать
+                </button>
+            </form>
             {% if user.is_staff %}
             <form method="post" action="{% url 'course:course_delete' course.id %}" class="d-inline"
                   onsubmit="return confirm('Переместить курс «{{ course.full_name|escapejs }}» в архив? Курс будет скрыт из списков, но данные сохранятся. Восстановить можно через Архив → Курсы.');">
