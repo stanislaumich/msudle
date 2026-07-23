@@ -16,11 +16,26 @@
                     <ul class="list-group mb-3">
                         <li class="list-group-item"><strong>ФИО:</strong> {{ deleted.fio }}</li>
                         <li class="list-group-item"><strong>Логин:</strong> <code>{{ deleted.login }}</code></li>
-                        <li class="list-group-item"><strong>Группа:</strong> {{ deleted.group_name|default:"—" }}</li>
+                        <li class="list-group-item"><strong>Группа при удалении:</strong> {{ deleted.group_name|default:"—" }}</li>
                         <li class="list-group-item"><strong>Удалён:</strong> {{ deleted.deleted_at|date:"d.m.Y H:i" }}</li>
                     </ul>
                     <form method="post">
                         {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="groupSelect" class="form-label fw-bold">Группа для восстановления:</label>
+                            <select class="form-select" id="groupSelect" name="group">
+                                <option value="">— Без группы —</option>
+                                {% for g in groups %}
+                                <option value="{{ g.id }}"
+                                    {% if original_group and g.id == original_group.id %}selected{% endif %}>
+                                    {{ g.group_number }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if original_group %}
+                            <div class="form-text">По умолчанию выбрана оригинальная группа.</div>
+                            {% endif %}
+                        </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-success">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i>Восстановить

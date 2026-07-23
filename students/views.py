@@ -117,6 +117,7 @@ def student_create(request):
             return render(request, 'students/create.html', {
                 'groups': groups,
                 'form_data': request.POST,
+                'student': None,
             })
 
         group = get_object_or_404(StudentGroup, id=group_id)
@@ -133,6 +134,7 @@ def student_create(request):
 
     return render(request, 'students/create.html', {
         'groups': groups,
+        'student': None,
     })
 
 
@@ -379,18 +381,31 @@ def archive_list(request):
 @login_required
 @user_passes_test(_is_teacher, login_url='/students/login/')
 def archive_restore(request, deleted_id):
-    """Восстановление удалённого студента из архива."""
+    """Восстановление удалённого студента из архива с возможностью выбора группы."""
     deleted = get_object_or_404(DeletedStudent, id=deleted_id)
+    groups = StudentGroup.objects.all().order_by('group_number')
+
+    # Вычисляем оригинальную группу
+    original_group = None
+    if deleted.group_id:
+        try:
+            original_group = StudentGroup.objects.get(id=deleted.group_id)
+        except StudentGroup.DoesNotExist:
+            pass
+
     if request.method == 'POST':
         if Student.objects.filter(login=deleted.login).exists():
             messages.error(request, f'Невозможно восстановить: логин «{deleted.login}» уже занят.')
             return redirect('students:archive')
+
+        group_id = request.POST.get('group', '')
         group = None
-        if deleted.group_id:
+        if group_id:
             try:
-                group = StudentGroup.objects.get(id=deleted.group_id)
-            except StudentGroup.DoesNotExist:
+                group = StudentGroup.objects.get(id=int(group_id))
+            except (StudentGroup.DoesNotExist, ValueError, TypeError):
                 pass
+
         try:
             Student.objects.create(
                 id=deleted.original_id,
@@ -412,10 +427,14 @@ def archive_restore(request, deleted_id):
             )
         name = deleted.fio
         deleted.delete()
-        messages.success(request, f'Студент «{name}» восстановлен из архива.')
+        group_str = str(group) if group else 'без группы'
+        messages.success(request, f'Студент «{name}» восстановлен в группу «{group_str}».')
         return redirect('students:archive')
+
     return render(request, 'students/archive_restore_confirm.html', {
         'deleted': deleted,
+        'groups': groups,
+        'original_group': original_group,
     })
 
 

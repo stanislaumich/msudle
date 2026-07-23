@@ -3,26 +3,20 @@
 # ==============================================
 
 # Основной фреймворк Django LTS
-Django==4.2.20
+Django==4.2.18
 
 # Django REST Framework для API
 djangorestframework==3.15.2
-
-# Channels для веб-сокетов (чат)
-channels==4.1.0
 
 # Работа с переменными окружения
 python-dotenv==1.0.1
 
 # Обработка изображений
-pillow==12.3.0
+pillow==10.4.0
 
 # Формы Bootstrap 5
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.10
-
-# Драйвер Oracle Database
-#cx-Oracle==7.3.0
 
 # WSGI сервер для продакшена
 gunicorn==23.0.0
@@ -31,19 +25,19 @@ gunicorn==23.0.0
 whitenoise==6.7.0
 
 # Фильтрация в DRF
-django-filter==24.3
+django-filter==25.1
 
 # JWT аутентификация
-djangorestframework-simplejwt==5.3.1
+djangorestframework-simplejwt==5.4.0
 
 # Обработка загрузки файлов
-python-multipart==0.0.19
+python-multipart==0.0.20
 
 # HTTP запросы
 requests==2.32.3
 
 # Часовые пояса
-pytz==2026.1
+pytz==2025.1
 
 # Парсер SQL
 sqlparse==0.5.3
@@ -51,5 +45,11 @@ sqlparse==0.5.3
 # Асинхронный слой
 asgiref==3.8.1
 
-# Утилиты для работы с пакетами
-setuptools==83.0.0
+# CORS заголовки
+django-cors-headers==4.6.0
+
+# WYSIWYG редактор для пошаговых единиц
+django-summernote==0.8.20.0
+
+# Экранирование HTML (зависимость summernote)
+bleach==6.2.0

@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load static %}{% load short_name %}
+
+{% block title %}Чат группы {{ chat_room.group.group_number }} — Msudle{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-people-fill me-2"></i>Чат группы {{ chat_room.group.group_number }}
+        </h2>
+        <a href="{% url 'chat:list' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Назад к чатам
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 12px;">
+        <div class="card-body p-0">
+            <div id="groupChatMessages" class="p-3"
+                 style="min-height: 400px; max-height: 60vh; overflow-y: auto; background-color: rgba(200, 225, 255, 0.05);"
+                 data-group-chat-id="{{ chat_room.id }}">
+                {% for msg in messages_list %}
+                <div class="mb-2 {% if msg.sender_student_id == user.id %}text-end{% else %}text-start{% endif %}">
+                    <small class="text-muted d-block">
+                        {{ msg.sender_student.fio|short_name }} · {{ msg.created_at|date:"d.m H:i" }}
+                    </small>
+                    <span class="d-inline-block px-3 py-1"
+                          style="{% if msg.sender_student_id == user.id %}background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;{% else %}background-color: rgba(220, 235, 255, 0.8); border-radius: 12px 12px 12px 4px;{% endif %} max-width: 85%; white-space: pre-wrap;">
+                        {{ msg.text }}
+                    </span>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center mt-3">Нет сообщений. Начните общение!</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer p-2" style="background-color: rgba(235, 242, 255, 0.6); border-radius: 0 0 12px 12px;">
+            <form id="groupChatSendForm" class="d-flex gap-2 w-100">
+                {% csrf_token %}
+                <input type="text" id="groupChatInput" class="form-control form-control-sm"
+                       placeholder="Введите сообщение..." autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messagesDiv = document.getElementById('groupChatMessages');
+        const sendForm = document.getElementById('groupChatSendForm');
+        const inputEl = document.getElementById('groupChatInput');
+        const groupChatId = messagesDiv.getAttribute('data-group-chat-id');
+
+        let pollTimer = null;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function htmlEscape(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function fetchMessages(scrollToBottom) {
+            if (scrollToBottom === undefined) scrollToBottom = true;
+            if (!groupChatId) return;
+
+            fetch('/chat/group/' + groupChatId + '/api/', { credentials: 'same-origin' })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('Error');
+                    return r.json();
+                })
+                .then(function(data) {
+                    messagesDiv.innerHTML = '';
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(function(msg) {
+                            const div = document.createElement('div');
+                            div.className = 'mb-2 ' + (msg.is_mine ? 'text-end' : 'text-start');
+                            const bgColor = msg.is_mine
+                                ? 'background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;'
+                                : 'background-color: rgba(220, 235, 255, 0.8); border-radius: 12px 12px 12px 4px;';
+                            div.innerHTML = '<small class="text-muted d-block">' + htmlEscape(msg.sender_name) + ' · ' + htmlEscape(msg.created_at) + '</small>' +
+                                '<span class="d-inline-block px-3 py-1" style="' + bgColor + ' max-width: 85%; white-space: pre-wrap;">' + htmlEscape(msg.text) + '</span>';
+                            messagesDiv.appendChild(div);
+                        });
+                    } else {
+                        messagesDiv.innerHTML = '<p class="text-muted text-center mt-3">Нет сообщений. Начните общение!</p>';
+                    }
+                    if (scrollToBottom) {
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                })
+                .catch(function() {
+                    messagesDiv.innerHTML = '<p class="text-danger text-center small">Ошибка загрузки сообщений</p>';
+                });
+        }
+
+        // Poll every 5 seconds
+        pollTimer = setInterval(function() {
+            if (groupChatId && document.visibilityState !== 'hidden') {
+                fetchMessages(false);
+            }
+        }, 5000);
+
+        sendForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const text = inputEl.value.trim();
+            if (!text || !groupChatId) return;
+
+            const csrfToken = getCookie('csrftoken');
+            fetch('/chat/group/' + groupChatId + '/api/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ text: text }),
+                credentials: 'same-origin',
+            })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('Error');
+                    return r.json();
+                })
+                .then(function(msg) {
+                    const div = document.createElement('div');
+                    div.className = 'mb-2 text-end';
+                    const bgColor = 'background-color: rgba(200, 230, 200, 0.8); border-radius: 12px 12px 4px 12px;';
+                    div.innerHTML = '<small class="text-muted d-block">' + htmlEscape(msg.sender_name) + ' · ' + htmlEscape(msg.created_at) + '</small>' +
+                        '<span class="d-inline-block px-3 py-1" style="' + bgColor + ' max-width: 85%; white-space: pre-wrap;">' + htmlEscape(msg.text) + '</span>';
+                    messagesDiv.appendChild(div);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    inputEl.value = '';
+                    inputEl.focus();
+                })
+                .catch(function() {
+                    alert('Не удалось отправить сообщение');
+                });
+        });
+
+        // Stop polling when leaving the page
+        window.addEventListener('beforeunload', function() {
+            if (pollTimer) clearInterval(pollTimer);
+        });
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #groupChatMessages::-webkit-scrollbar {
+        width: 6px;
+    }
+    #groupChatMessages::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}

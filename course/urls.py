@@ -54,6 +54,14 @@ urlpatterns = [
     path('step-by-step/<int:unit_id>/take/', views.step_by_step_take, name='step_by_step_take'),
     path('step-by-step/<int:unit_id>/preview/', views.step_by_step_preview, name='step_by_step_preview'),
 
+    # Экспорт/импорт пошаговых единиц
+    path('step-by-step/<int:unit_id>/export/', views.step_by_step_export, name='step_by_step_export'),
+    path('step-by-step/import/', views.step_by_step_import_page, name='step_by_step_import_page'),
+    path('step-by-step/import/do/', views.step_by_step_import, name='step_by_step_import'),
+
+    # Сброс прогресса пошаговых единиц для группы
+    path('<int:course_id>/group/<int:group_id>/reset-step-progress/', views.step_progress_reset_group, name='step_progress_reset_group'),
+
     # Права преподавателей
     path('<int:course_id>/teacher-permission/add/', views.teacher_permission_add, name='teacher_permission_add'),
     path('<int:course_id>/teacher-permission/<int:up_id>/remove/', views.teacher_permission_remove, name='teacher_permission_remove'),

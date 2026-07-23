@@ -1,0 +1,7 @@
+pip install uvicorn
+c:\www\nssm\nssm.exe install msudle "uvicorn" "C:\WWW\Django\msudle\msudle.asgi:application" --host 0.0.0.0 --port 80 --workers 3
+c:\www\nssm\nssm.exe set msudle AppDirectory "C:\WWW\Django\msudle"
+c:\www\nssm\nssm.exe set msudle AppStdout "C:\WWW\Django\msudle\msudle_out.log"
+c:\www\nssm\nssm.exe set msudle AppStderr "C:\WWW\Django\msudle\msudle_err.log"
+c:\www\nssm\nssm.exe set msudle Start SERVICE_AUTO_START
+c:\www\nssm\nssm.exe start msudle

@@ -40,6 +40,13 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.is_authenticated and user.fio|default:'' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_home' %}">
+                            <i class="bi bi-bar-chart-fill me-1"></i>Успеваемость
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if user.is_authenticated and not user.fio|default:'' %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="studentsDropdown" role="button"
@@ -234,10 +241,15 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-white py-3 mt-5">
+    <footer class="bg-dark text-white py-3 mt-5 position-relative">
         <div class="container text-center">
             <small class="text-muted">&copy; {% now "Y" %} Msudle. Все права защищены.</small>
         </div>
+        <button id="btnScrollTop" class="btn btn-outline-light btn-sm position-absolute"
+                style="right: 20px; top: 50%; transform: translateY(-50%); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;"
+                title="Наверх">
+            <i class="bi bi-chevron-up"></i>
+        </button>
     </footer>
 
     <!-- Bootstrap 5 JS Bundle (локально) -->
@@ -261,6 +273,14 @@
                 e.stopPropagation();
             }
         });
+
+        // Кнопка «Наверх»
+        var btnScrollTop = document.getElementById('btnScrollTop');
+        if (btnScrollTop) {
+            btnScrollTop.addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
 
         // Переключение тёмной темы
         (function() {

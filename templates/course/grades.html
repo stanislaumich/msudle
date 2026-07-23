@@ -227,6 +227,86 @@
         </a>
     </div>
     {% endif %}
+
+    {# ============ ТАБЛИЦА ПОШАГОВЫХ ЕДИНИЦ ============ #}
+    {% if step_units_groups_data and all_step_units %}
+    <h4 class="mt-4 mb-3 fw-bold">
+        <i class="bi bi-list-ol me-2"></i>Пошаговые единицы
+        <small class="text-muted fs-6">(автоматический подсчёт: верный ответ = 1 балл, неверный = 0)</small>
+    </h4>
+    {% for sgd in step_units_groups_data %}
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; background-color: rgba(200, 225, 255, 0.08);">
+        <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.25) !important; border-radius: 12px 12px 0 0 !important;">
+            <div class="d-flex justify-content-between align-items-center">
+                <a class="grade-group-toggle text-decoration-none text-reset d-flex align-items-center"
+                   data-bs-toggle="collapse" href="#stepGroupBody{{ forloop.counter }}" role="button"
+                   aria-expanded="false" title="Развернуть/свернуть группу">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-people me-2"></i>
+                        Группа: {{ sgd.group.group_number }}
+                    </h5>
+                    <i class="bi bi-chevron-down collapse-icon ms-3"></i>
+                </a>
+                <form method="post" action="{% url 'course:step_progress_reset_group' course.id sgd.group.id %}"
+                      onsubmit="return confirm('Сбросить все результаты пошаговых единиц для группы «{{ sgd.group.group_number }}»? Студенты смогут пройти их заново.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-arrow-repeat me-1"></i>Сбросить результаты
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="collapse" id="stepGroupBody{{ forloop.counter }}">
+        <div class="card-body p-0" style="overflow-x: auto;">
+            {% if sgd.student_rows %}
+            <table class="table table-bordered table-hover table-sm mb-0" style="min-width: 800px;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-nowrap p-2" style="position: sticky; left: 0; background: inherit; z-index: 1;">Студент</th>
+                        {% for su in sgd.step_units %}
+                        <th class="text-center p-2" style="min-width: 80px; word-break: break-word;">{{ su.title }}</th>
+                        {% endfor %}
+                        <th class="text-center p-2" style="min-width: 80px; background-color: rgba(200, 230, 200, 0.3);">
+                            Σ / Всего<br><small class="text-muted">баллы</small>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in sgd.student_rows %}
+                    <tr>
+                        <td class="text-nowrap p-2" style="position: sticky; left: 0; background: rgba(240, 245, 255, 0.95); z-index: 1;">
+                            <small>{{ row.student.fio }}</small>
+                        </td>
+                        {% for cell in row.unit_cells %}
+                        <td class="text-center p-1">
+                            {% if cell.possible > 0 %}
+                            <span class="fw-bold {% if cell.score == cell.possible %}text-success{% elif cell.score > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ cell.score }}/{{ cell.possible }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td class="text-center p-1 fw-bold" style="background-color: rgba(200, 230, 200, 0.15);">
+                            {% if row.possible_score > 0 %}
+                            {{ row.total_score }} / {{ row.possible_score }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted p-3 mb-0">В этой группе нет студентов.</p>
+            {% endif %}
+        </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
         </div>{# конец левой колонки #}
 
         {# Правая колонка — дашборд чата #}

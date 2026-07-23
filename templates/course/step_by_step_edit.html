@@ -26,9 +26,11 @@
             <p class="text-muted mb-0">Редактирование шагов пошаговой единицы</p>
         </div>
         <div class="d-flex gap-2">
+            {% if course %}
             <a href="{% url 'course:course_edit' course.id %}" class="btn btn-outline-secondary">
                 <i class="bi bi-gear me-1"></i>Курс
             </a>
+            {% endif %}
             <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>К списку
             </a>
@@ -117,7 +119,7 @@
                             {{ question.text }}
                             <div class="mt-1">
                                 {% for choice in question.choices.all %}
-                                <span class="badge {% if choice.is_correct %}bg-success{% else %}bg-secondary{% endif %} me-1 mb-1">
+                                <span class="badge text-wrap text-start {% if choice.is_correct %}bg-success{% else %}bg-secondary{% endif %} me-1 mb-1" style="white-space:normal; word-break:break-word; max-width:100%;">
                                     {% if choice.is_correct %}✓{% else %}✗{% endif %} {{ choice.text }}
                                 </span>
                                 {% endfor %}

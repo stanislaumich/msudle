@@ -1,0 +1,247 @@
+/* ============================================
+   Msudle — Основные стили (с тёмной темой)
+   ============================================ */
+
+/* --- CSS-переменные: светлая тема (по умолчанию) --- */
+:root {
+    --bg-body: #f8f9fa;
+    --bg-card: #ffffff;
+    --text-primary: #212529;
+    --text-muted: #6c757d;
+    --border-card: transparent;
+    --shadow-card: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --bg-light-section: #f8f9fa;
+    --footer-bg: #212529;
+    --hero-bg: #0d6efd;
+    --navbar-bg: #0d6efd;
+    --input-bg: #ffffff;
+    --input-border: #dee2e6;
+    --input-text: #212529;
+    --dropdown-bg: #ffffff;
+    --dropdown-text: #212529;
+    --dropdown-hover: #f8f9fa;
+    --text-white: #ffffff;
+}
+
+/* --- Тёмная тема --- */
+[data-theme="dark"] {
+    --bg-body: #1a1d23;
+    --bg-card: #212529;
+    --text-primary: #e9ecef;
+    --text-muted: #adb5bd;
+    --border-card: #2b3035;
+    --shadow-card: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+    --bg-light-section: #212529;
+    --footer-bg: #121416;
+    --hero-bg: #0a58ca;
+    --navbar-bg: #212529;
+    --input-bg: #2b3035;
+    --input-border: #495057;
+    --input-text: #e9ecef;
+    --dropdown-bg: #212529;
+    --dropdown-text: #e9ecef;
+    --dropdown-hover: #343a40;
+    --text-white: #e9ecef;
+}
+
+/* --- Общие стили --- */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+main {
+    flex: 1;
+}
+
+/* --- Feature Icons Background --- */
+.bg-primary-light {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.bg-success-light {
+    background-color: rgba(25, 135, 84, 0.1);
+}
+
+.bg-warning-light {
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+/* --- Cards --- */
+.card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
+    color: var(--text-primary);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.card .text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* --- Светлая секция (stats) --- */
+.bg-light {
+    background-color: var(--bg-light-section) !important;
+    transition: background-color 0.3s ease;
+}
+
+/* --- Feature Icon Circles --- */
+.feature-icon {
+    transition: transform 0.3s ease;
+}
+
+.card:hover .feature-icon {
+    transform: scale(1.1);
+}
+
+/* --- Navbar --- */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar.bg-primary {
+    background-color: var(--navbar-bg) !important;
+    transition: background-color 0.3s ease;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* --- Кнопка переключения темы --- */
+.theme-toggle {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.theme-toggle:hover {
+    background-color: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.5);
+}
+
+.theme-toggle i {
+    font-size: 1.1rem;
+}
+
+/* --- Footer --- */
+footer.bg-dark {
+    background-color: var(--footer-bg) !important;
+    transition: background-color 0.3s ease;
+}
+
+footer a:hover {
+    color: #fff !important;
+}
+
+footer .text-muted a {
+    transition: color 0.2s ease;
+}
+
+/* --- Hero section --- */
+.bg-primary.text-white {
+    background-color: var(--hero-bg) !important;
+    transition: background-color 0.3s ease;
+}
+
+.bg-primary .display-1 {
+    font-size: 6rem;
+    opacity: 0.9;
+}
+
+/* --- Stats --- */
+.display-4.fw-bold {
+    font-size: 2.5rem;
+}
+
+/* --- Dropdown --- */
+.dropdown-menu {
+    background-color: var(--dropdown-bg);
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-item {
+    color: var(--dropdown-text);
+}
+
+.dropdown-item:hover {
+    background-color: var(--dropdown-hover);
+}
+
+.dropdown-item-text {
+    color: var(--text-muted);
+}
+
+/* --- Forms --- */
+.form-control {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--input-text);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.form-control:focus {
+    background-color: var(--input-bg);
+    color: var(--input-text);
+}
+
+.form-label {
+    color: var(--text-primary);
+}
+
+/* --- Alerts --- */
+.alert {
+    transition: background-color 0.3s ease;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: #2b3035;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #6c757d;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}

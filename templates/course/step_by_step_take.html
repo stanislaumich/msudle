@@ -17,16 +17,106 @@
         </a>
     </div>
 
-    {% if all_completed %}
-    <div class="text-center py-5">
-        <i class="bi bi-check-circle-fill display-1 text-success mb-3"></i>
-        <h4 class="fw-bold">Поздравляем!</h4>
-        <p class="text-muted">Все шаги успешно пройдены. Вы освоили материал этой пошаговой единицы.</p>
-        <a href="{% url 'course:course_view' course.id %}" class="btn btn-primary mt-3">
+    {% if all_completed and read_only %}
+    {# Все шаги пройдены — режим просмотра #}
+    <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+        <div>
+            <strong>Поздравляем!</strong> Все шаги пройдены. Вы можете просматривать материалы и свои ответы.
+        </div>
+        <a href="{% url 'course:course_view' course.id %}" class="btn btn-outline-success btn-sm ms-auto">
             <i class="bi bi-book me-1"></i>Вернуться к курсу
         </a>
     </div>
-    {% else %}
+
+    {# Список шагов с навигацией #}
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header py-2" style="background-color: rgba(180, 210, 250, 0.2);">
+                    <span class="fw-semibold"><i class="bi bi-list-ol me-2"></i>Содержание</span>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for step in steps %}
+                    <a href="?step={{ forloop.counter0 }}"
+                       class="list-group-item list-group-item-action d-flex align-items-center py-2
+                              {% if forloop.counter0 == current_index %}active{% endif %}">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span>Шаг {{ step.order }}: {{ step.title }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.25);">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-flag-fill me-2"></i>Шаг {{ current_step.order }}: {{ current_step.title }}
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if current_step.content %}
+                    <div class="mb-4 p-3 rounded-3" style="background-color: rgba(235, 242, 255, 0.3);">
+                        {{ current_step.content|safe }}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-4">Материал шага отсутствует.</p>
+                    {% endif %}
+
+                    {% if questions %}
+                    <div class="border-top pt-3">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-question-circle me-1"></i>Ваши ответы:
+                        </h6>
+                        {% for question in questions %}
+                        <div class="mb-3 p-3 rounded-3" style="background-color: rgba(255, 245, 220, 0.15);">
+                            <p class="fw-semibold mb-2">{{ forloop.counter }}. {{ question.text }}</p>
+                            {% for choice in question.choices.all %}
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" disabled
+                                       {% if choice.id in chosen_choice_ids %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    {{ choice.text }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {# Навигация #}
+                    <div class="d-flex justify-content-between border-top pt-3 mt-3">
+                        <div>
+                            {% if prev_index is not None %}
+                            <a href="?step={{ prev_index }}" class="btn btn-outline-primary">
+                                <i class="bi bi-chevron-left me-1"></i>Предыдущий шаг
+                            </a>
+                            {% else %}
+                            <span class="btn btn-outline-secondary disabled">
+                                <i class="bi bi-chevron-left me-1"></i>Предыдущий шаг
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if next_index is not None %}
+                            <a href="?step={{ next_index }}" class="btn btn-outline-primary">
+                                Следующий шаг<i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                            {% else %}
+                            <span class="btn btn-outline-secondary disabled">
+                                Последний шаг
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif not all_completed %}
     {# Прогресс-бар #}
     <div class="mb-4">
         <div class="d-flex justify-content-between mb-1">
@@ -75,8 +165,8 @@
                 </div>
                 <div class="card-body p-4">
                     {% if current_step.content %}
-                    <div class="mb-4 p-3 rounded-3" style="background-color: rgba(235, 242, 255, 0.3); white-space: pre-wrap;">
-                        {{ current_step.content }}
+                    <div class="mb-4 p-3 rounded-3" style="background-color: rgba(235, 242, 255, 0.3);">
+                        {{ current_step.content|safe }}
                     </div>
                     {% else %}
                     <p class="text-muted mb-4">Материал шага отсутствует.</p>
@@ -85,7 +175,7 @@
                     {% if questions %}
                     <div class="border-top pt-3">
                         <h6 class="fw-bold mb-3">
-                            <i class="bi bi-question-circle me-1"></i>Ответьте на вопросы, чтобы перейти к следующему шагу:
+                            <i class="bi bi-question-circle me-1"></i>Ответьте на вопросы:
                         </h6>
                         <form method="post">
                             {% csrf_token %}
@@ -106,7 +196,7 @@
                                 {% if is_last_step %}
                                 <i class="bi bi-flag-checkered me-1"></i>Завершить
                                 {% else %}
-                                <i class="bi bi-check-lg me-1"></i>Ответить и перейти дальше
+                                <i class="bi bi-arrow-right me-1"></i>Ответить и перейти дальше
                                 {% endif %}
                             </button>
                         </form>

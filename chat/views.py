@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.db.models import Q, Count
 from django.http import HttpResponseBadRequest
 
-from .models import ChatRoom, ChatMessage
+from .models import ChatRoom, ChatMessage, GroupChat, GroupChatMessage
 from course.models import Course, CourseGroupStudent
 
 
@@ -43,9 +43,15 @@ def chat_list(request):
                     allowed_course_ids.append(room.course_id)
             rooms = rooms.filter(course_id__in=allowed_course_ids)
 
+    # Групповой чат для студентов
+    group_chat = None
+    if is_student and user.group_id:
+        group_chat, _ = GroupChat.objects.get_or_create(group_id=user.group_id)
+
     return render(request, 'chat/list.html', {
         'rooms': rooms,
         'is_student': is_student,
+        'group_chat': group_chat,
     })
 
 
@@ -214,3 +220,34 @@ def chat_restore(request, room_id):
         room.save()
         messages.success(request, f'Чат с «{room.student.fio}» восстановлен.')
     return redirect('chat:list')
+
+
+@login_required
+def group_chat(request, group_chat_id):
+    """Групповой чат для студентов группы."""
+    user = request.user
+    # Только студенты имеют доступ к групповому чату
+    if not hasattr(user, 'fio'):
+        messages.error(request, 'Групповые чаты доступны только студентам.')
+        return redirect('chat:list')
+
+    chat_room = get_object_or_404(
+        GroupChat.objects.select_related('group'),
+        id=group_chat_id
+    )
+
+    # Проверка: студент должен быть в этой группе
+    if user.group_id != chat_room.group_id:
+        messages.error(request, 'Нет доступа к чату этой группы.')
+        return redirect('chat:list')
+
+    messages_list = chat_room.messages.select_related('sender_student').order_by('created_at')
+
+    # Помечаем сообщения от других студентов как прочитанные
+    chat_room.messages.filter(is_read=False).exclude(sender_student=user).update(is_read=True)
+
+    return render(request, 'chat/group_chat.html', {
+        'chat_room': chat_room,
+        'messages_list': messages_list,
+        'is_student': True,
+    })

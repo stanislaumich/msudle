@@ -4,10 +4,20 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 
-from .models import ChatRoom, ChatMessage
+from .models import ChatRoom, ChatMessage, GroupChat, GroupChatMessage
 from course.models import Course, CourseGroupStudent
 from course.views import _get_user_permission
 from students.models import Student
+
+
+def _short_fio(full_fio):
+    """Возвращает 'Фамилия И.О.' из полного ФИО."""
+    if not full_fio:
+        return ''
+    parts = full_fio.strip().split()
+    if len(parts) >= 2:
+        return f"{parts[0]} {''.join(p[0].upper() + '.' for p in parts[1:])}"
+    return full_fio
 
 
 @login_required
@@ -98,5 +108,75 @@ def chat_api_messages(request, course_id, student_id):
             'is_from_student': is_student,
             'text': msg.text,
             'is_read': msg.is_read,
+            'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M:%S'),
+        })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def group_chat_api_messages(request, group_chat_id):
+    """API для группового чата.
+    GET  — возвращает JSON с историей сообщений группового чата.
+    POST — создаёт новое сообщение.
+    """
+    user = request.user
+    # Только студенты
+    if not hasattr(user, 'fio'):
+        return JsonResponse({'error': 'Доступ запрещён'}, status=403)
+
+    chat_room = get_object_or_404(
+        GroupChat.objects.select_related('group'),
+        id=group_chat_id
+    )
+
+    # Проверка: студент должен быть в этой группе
+    if user.group_id != chat_room.group_id:
+        return JsonResponse({'error': 'Доступ запрещён'}, status=403)
+
+    if request.method == 'GET':
+        messages_qs = chat_room.messages.select_related('sender_student').order_by('created_at')
+        data = []
+        for msg in messages_qs:
+            data.append({
+                'id': msg.id,
+                'sender_name': _short_fio(msg.sender_student.fio),
+                'sender_id': msg.sender_student_id,
+                'is_mine': msg.sender_student_id == user.id,
+                'text': msg.text,
+                'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M:%S'),
+            })
+
+        # Помечаем сообщения от других студентов как прочитанные
+        chat_room.messages.filter(is_read=False).exclude(sender_student=user).update(is_read=True)
+
+        return JsonResponse({
+            'room_id': chat_room.id,
+            'group_name': str(chat_room.group.group_number),
+            'messages': data,
+        })
+
+    elif request.method == 'POST':
+        import json
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+            text = body.get('text', '').strip()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            text = ''
+
+        if not text:
+            return JsonResponse({'error': 'Текст сообщения обязателен'}, status=400)
+
+        msg = GroupChatMessage.objects.create(
+            room=chat_room,
+            sender_student=user,
+            text=text,
+        )
+
+        return JsonResponse({
+            'id': msg.id,
+            'sender_name': _short_fio(user.fio),
+            'sender_id': user.id,
+            'is_mine': True,
+            'text': msg.text,
             'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M:%S'),
         })

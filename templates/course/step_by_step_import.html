@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Импорт пошаговой единицы{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-upload me-2"></i>Импорт пошаговой единицы
+            </h2>
+            <p class="text-muted mb-0">Загрузите JSON-файл экспорта пошаговой единицы</p>
+        </div>
+        <a href="{% url 'course:step_by_step_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Назад к списку
+        </a>
+    </div>
+
+    {% if error_message %}
+    <div class="alert alert-danger mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_message }}
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <form method="post" action="{% url 'course:step_by_step_import_page' %}" enctype="multipart/form-data" id="importForm">
+                        {% csrf_token %}
+                        {% if not import_data %}
+                        <div class="mb-3">
+                            <label for="importFile" class="form-label fw-bold">JSON-файл экспорта</label>
+                            <input type="file" class="form-control" id="importFile" name="json_file" accept=".json" required>
+                            <small class="text-muted">Файл должен быть в формате экспорта пошаговой единицы (JSON).</small>
+                        </div>
+                        {% endif %}
+                        {% if import_data %}
+                        <hr>
+                        <input type="hidden" name="import_json" value="{{ import_json }}">
+                        <div class="mb-3">
+                            <label for="importTitle" class="form-label fw-bold">Название единицы</label>
+                            <input type="text" class="form-control" id="importTitle" name="title"
+                                   value="{{ import_data.title }}" required maxlength="300">
+                            <small class="text-muted">Можно изменить название перед импортом.</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-info me-2">Шагов: {{ steps_count }}</span>
+                            <span class="badge bg-secondary">Исходное название: {{ import_data.title }}</span>
+                        </div>
+                        <button type="submit" class="btn btn-warning" id="importSubmitBtn">
+                            <i class="bi bi-upload me-1"></i>Импортировать
+                        </button>
+                        <div id="importProgress" class="mt-3 d-none">
+                            <div class="d-flex align-items-center gap-2 text-muted">
+                                <div class="spinner-border spinner-border-sm text-warning" role="status">
+                                    <span class="visually-hidden">Импорт...</span>
+                                </div>
+                                <span>Идёт импорт, пожалуйста подождите...</span>
+                            </div>
+                        </div>
+                        {% else %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i>Проверить файл
+                        </button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-header py-3" style="background-color: rgba(180, 210, 250, 0.2);">
+                    <i class="bi bi-info-circle me-2"></i><span class="fw-bold">Информация</span>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        <i class="bi bi-check2-circle text-success me-1"></i>
+                        Поддерживаемый формат: <strong>JSON</strong> (экспорт пошаговой единицы)
+                    </p>
+                    <p class="small text-muted">
+                        <i class="bi bi-check2-circle text-success me-1"></i>
+                        Импортируются: шаги, вопросы, варианты ответов (включая правильные)
+                    </p>
+                    <p class="small text-muted">
+                        <i class="bi bi-info-circle text-primary me-1"></i>
+                        После импорта единицу можно привязать к курсу через редактор
+                    </p>
+                    {% if import_data %}
+                    <hr>
+                    <h6 class="fw-bold">Структура:</h6>
+                    <ul class="list-unstyled small">
+                        {% for step in import_data.steps %}
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right-short text-primary"></i>
+                            <strong>{{ step.title }}</strong>
+                            <span class="text-muted">({{ step.questions|length }} вопр.)</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        var form = document.getElementById('importForm');
+        var btn = document.getElementById('importSubmitBtn');
+        var progress = document.getElementById('importProgress');
+        if (form && btn) {
+            form.addEventListener('submit', function() {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Импорт...';
+                if (progress) progress.classList.remove('d-none');
+            });
+        }
+    })();
+</script>
+{% endblock %}

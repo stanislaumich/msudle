@@ -16,6 +16,9 @@
             <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createUnitModal">
                 <i class="bi bi-plus-lg me-1"></i>Создать пошаговую единицу
             </button>
+            <a href="{% url 'course:step_by_step_import_page' %}" class="btn btn-warning" title="Импорт из JSON">
+                <i class="bi bi-upload me-1"></i>Импорт
+            </a>
             <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Назад к курсам
             </a>
@@ -42,6 +45,9 @@
                     <div class="d-flex gap-1">
                         <a href="{% url 'course:step_by_step_preview' unit.id %}" class="btn btn-sm btn-outline-success" title="Просмотр">
                             <i class="bi bi-play-fill"></i>
+                        </a>
+                        <a href="{% url 'course:step_by_step_export' unit.id %}" class="btn btn-sm btn-warning" title="Экспорт в JSON" download>
+                            <i class="bi bi-download"></i>
                         </a>
                         <a href="{% url 'course:step_by_step_edit' unit.id %}" class="btn btn-outline-primary btn-sm" title="Редактировать">
                             <i class="bi bi-pencil"></i>
@@ -85,6 +91,9 @@
                             <a href="{% url 'course:step_by_step_preview' su.unit.id %}" class="btn btn-sm btn-outline-success" title="Просмотр">
                                 <i class="bi bi-play-fill"></i>
                             </a>
+                            <a href="{% url 'course:step_by_step_export' su.unit.id %}" class="btn btn-sm btn-warning" title="Экспорт в JSON" download>
+                                <i class="bi bi-download"></i>
+                            </a>
                             <a href="{% url 'course:step_by_step_edit' su.unit.id %}" class="btn btn-sm btn-outline-primary" title="Редактировать">
                                 <i class="bi bi-pencil"></i>
                             </a>
@@ -127,6 +136,27 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-success"><i class="bi bi-arrow-right me-1"></i>Продолжить</button>
+                </div>
+            </form>
+        </div></div>
+    </div>
+
+    {# Модалка импорта #}
+    <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-upload text-warning me-2"></i>Импорт пошаговой единицы</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form method="post" action="{% url 'course:step_by_step_import' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">Выберите JSON-файл</label>
+                        <input type="file" class="form-control" id="importFile" name="json_file" accept=".json" required>
+                    </div>
+                    <small class="text-muted">Файл должен быть в формате экспорта пошаговой единицы (JSON).</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-upload me-1"></i>Импортировать</button>
                 </div>
             </form>
         </div></div>

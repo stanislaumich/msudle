@@ -57,6 +57,78 @@ class ChatRoom(models.Model):
         return self.messages.order_by('-created_at').first()
 
 
+class GroupChat(models.Model):
+    """
+    Групповой чат для студентов одной группы.
+    Одна комната на группу (OneToOne).
+    """
+    group = models.OneToOneField(
+        'students.StudentGroup',
+        on_delete=models.CASCADE,
+        related_name='group_chat',
+        verbose_name='Группа',
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата создания',
+    )
+
+    class Meta:
+        verbose_name = 'Групповой чат'
+        verbose_name_plural = 'Групповые чаты'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Чат группы {self.group.group_number}'
+
+    def last_message(self):
+        return self.messages.order_by('-created_at').first()
+
+    def unread_count_for(self, student):
+        """Количество непрочитанных сообщений для студента.
+        Прочитанные отслеживаем через флаг is_read — все сообщения,
+        отправленные другими студентами, которые ещё не прочитаны.
+        """
+        # Студент читает: непрочитанные сообщения от других студентов
+        return self.messages.filter(is_read=False).exclude(sender_student=student).count()
+
+
+class GroupChatMessage(models.Model):
+    """Сообщение в групповом чате."""
+    room = models.ForeignKey(
+        GroupChat,
+        on_delete=models.CASCADE,
+        related_name='messages',
+        verbose_name='Комната',
+    )
+    sender_student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='group_chat_messages',
+        verbose_name='Отправитель',
+    )
+    text = models.TextField(
+        verbose_name='Текст сообщения',
+    )
+    is_read = models.BooleanField(
+        default=False,
+        verbose_name='Прочитано',
+        help_text='Помечается после того, как все студенты группы прочитали (для простоты — не используется активно).',
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата отправки',
+    )
+
+    class Meta:
+        verbose_name = 'Сообщение группового чата'
+        verbose_name_plural = 'Сообщения групповых чатов'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.sender_student.fio}: {self.text[:50]}'
+
+
 class ChatMessage(models.Model):
     """Сообщение в чате."""
     room = models.ForeignKey(

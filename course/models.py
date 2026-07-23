@@ -637,6 +637,12 @@ class StepProgress(models.Model):
         blank=True,
         verbose_name='Дата прохождения',
     )
+    answers = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name='Ответы студента',
+        help_text='Выбранные варианты ответов: {question_id: [choice_id, ...]}',
+    )
 
     class Meta:
         verbose_name = 'Прогресс по шагу'

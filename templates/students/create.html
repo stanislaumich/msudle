@@ -19,12 +19,12 @@
                     <div class="col-md-6">
                         <label for="fioInput" class="form-label">ФИО *</label>
                         <input type="text" name="fio" id="fioInput" class="form-control" 
-                               value="{{ form_data.fio|default:student.fio|default:'' }}" required>
+                               value="{% if student %}{{ form_data.fio|default:student.fio }}{% else %}{{ form_data.fio|default:'' }}{% endif %}" required>
                     </div>
                     <div class="col-md-3">
                         <label for="loginInput" class="form-label">Логин *</label>
                         <input type="text" name="login" id="loginInput" class="form-control" 
-                               value="{{ form_data.login|default:student.login|default:'' }}" required>
+                               value="{% if student %}{{ form_data.login|default:student.login }}{% else %}{{ form_data.login|default:'' }}{% endif %}" required>
                     </div>
                     <div class="col-md-3">
                         <label for="passwordInput" class="form-label">
@@ -37,7 +37,7 @@
                     <div class="col-md-3">
                         <label for="recordBookInput" class="form-label">Зачётная книжка</label>
                         <input type="text" name="record_book_number" id="recordBookInput" class="form-control" 
-                               value="{{ form_data.record_book_number|default:student.record_book_number|default:'' }}"
+                               value="{% if student %}{{ form_data.record_book_number|default:student.record_book_number }}{% else %}{{ form_data.record_book_number|default:'' }}{% endif %}"
                                placeholder="Необязательно">
                     </div>
                     <div class="col-md-3">

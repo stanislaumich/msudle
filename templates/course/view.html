@@ -165,9 +165,14 @@
                                 {% endif %}
                                 {% endwith %}
                             {% elif is_student and unit.content_type == 'step_by_step' %}
+                            {% with progress=step_progress_map|get_item:unit.id %}
+                            <span class="small fw-semibold me-2 {% if progress.0 == progress.1 and progress.1 > 0 %}text-success{% elif progress.0 > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                ({{ progress.0|default:0 }}/{{ progress.1|default:0 }})
+                            </span>
                             <a href="{% url 'course:step_by_step_take' unit.id %}" class="btn btn-primary btn-sm flex-shrink-0">
-                                <i class="bi bi-list-ol me-1"></i>Пройти
+                                <i class="bi bi-list-ol me-1"></i>{% if progress.0 == progress.1 and progress.1 > 0 %}Повторить{% else %}Пройти{% endif %}
                             </a>
+                            {% endwith %}
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -234,9 +239,14 @@
                         {% endif %}
                         {% endwith %}
                     {% elif is_student and unit.content_type == 'step_by_step' %}
+                    {% with progress=step_progress_map|get_item:unit.id %}
+                    <span class="small fw-semibold me-2 {% if progress.0 == progress.1 and progress.1 > 0 %}text-success{% elif progress.0 > 0 %}text-warning{% else %}text-danger{% endif %}">
+                        ({{ progress.0|default:0 }}/{{ progress.1|default:0 }})
+                    </span>
                     <a href="{% url 'course:step_by_step_take' unit.id %}" class="btn btn-primary btn-sm flex-shrink-0">
-                        <i class="bi bi-list-ol me-1"></i>Пройти
+                        <i class="bi bi-list-ol me-1"></i>{% if progress.0 == progress.1 and progress.1 > 0 %}Повторить{% else %}Пройти{% endif %}
                     </a>
+                    {% endwith %}
                     {% endif %}
                 </div>
                 {% endfor %}
